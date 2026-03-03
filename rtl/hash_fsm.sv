@@ -57,68 +57,74 @@ module hash_fsm (
     // =======================================================================
     // FSM State Declarations & Logic
     // =======================================================================
-    parameter
-    IDLE    = 7'b0000001,
-    INIT    = 7'b0000010,
-    ABSORB  = 7'b0000100,
-    SQUEEZE = 7'b0001000;
+    typedef enum logic [6:0] {
+        IDLE    = 7'b0000001,
+        INIT    = 7'b0000010,
+        ABSORB  = 7'b0000100,
+        SQUEEZE = 7'b0001000
+    } hash_state_e;
 
-    reg [6:0] State, NextState;
+    hash_state_e State, NextState;
 
     // (State machine logic goes here)
 
-    always @(posedge clk)
-        begin
-    if (rst)
-        State <= IDLE;
-    else
-        State <= NextState;
+    // =======================================================================
+    // State register
+    // =======================================================================
+    always_ff @(posedge clk) begin
+        if (rst)
+            State <= IDLE;
+        else
+            State <= NextState;
     end
 
-    always @(State)
-    begin
-    case (State)
-    IDLE: begin
+    // =======================================================================
+    // Next state + outputs logic
+    // =======================================================================
+    always_comb begin
+        // Defaults
+        NextState = State;
 
-    end
+        // =================================
+        // State actions / transitions
+        // =================================
+        unique case (State)
 
-    INIT: begin
- 
-    end
+            IDLE: begin
+                busy_o = 1'b0;
+                done_o = 1'b0;
 
-    ABSORB: begin
+                // wait for start
+                if (start_i) begin
+                    NextState = INIT;
+                end
+            end
 
-    end
+            INIT: begin
+                busy_o = 1'b1;
 
-    SQUEEZE: begin
+                // TODO:
+                // NextState = ABSORB;
+            end
 
-    end
+            ABSORB: begin
+                busy_o = 1'b1;
 
-    endcase
-    end
+                // TODO:
+                // NextState = SQUEEZE;
+            end
 
+            SQUEEZE: begin
+                busy_o = 1'b1;
 
-// Next state generation logic
+                // TODO:
+                // NextState = IDLE;
+            end
 
-    always @(State)
-    begin
-    case (State)
-    IDLE: begin
-    
-    end
-
-    INIT: begin
-            
-    end
-
-    ABSORB: begin
-    
-    end
-
-    SQUEEZE: begin
-    
-    end
-    endcase
+            default: begin
+                NextState = IDLE;
+            end
+        endcase
     end
 
 endmodule
