@@ -265,7 +265,7 @@ always_ff @(posedge clk or negedge rst) begin
 
     //Domain seperation - branch enc path /dec path 
     ST_AD_DOM: begin 
-        state_r <= mode_r ? ST_DAT_RD0 : ST_AD_XOR0;
+        state_r <= mode_r ? ST_DAT_RD0 : ST_DAT_XOR0;
     end
 
     //DATA - dec path: read S0/S1 before overwrite
