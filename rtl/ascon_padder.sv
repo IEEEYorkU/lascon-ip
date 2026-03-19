@@ -135,7 +135,19 @@ module ascon_padder (
         endcase
     endfunction
 
-    assign masked_data = apply_padding(s_axis_tdata_i, s_axis_tkeep_i);
+    // Power-Optimized Operand Isolation
+    always_comb begin
+        // Default: Pass data through
+        masked_data = s_axis_tdata_i;
+
+        // OPERAND ISOLATION:
+        // Only wake up and toggle the 64-bit padding multiplexers if we are
+        // actively receiving a valid, partial final-word of a padding group.
+        // This saves massive dynamic power during long CT/PT/MSG streams.
+        if (s_axis_tvalid_i && is_padding_group && s_axis_tlast_i && (s_axis_tkeep_i != 8'hFF)) begin
+            masked_data = apply_padding(s_axis_tdata_i, s_axis_tkeep_i);
+        end
+    end
 
     // -----------------------------------------------------------------------
     // 2. State Machine Logic
