@@ -8,7 +8,7 @@
 `timescale 1ns/1ps
 import ascon_pkg::*;
 
-module tb_ascon_aead();
+module tb_aead_fsm();
 
     // =========================
     // Clock / Reset
@@ -61,7 +61,7 @@ module tb_ascon_aead();
     // =========================
     // DUT: AEAD
     // =========================
-    ascon_aead dut (
+    aead_fsm dut (
         .clk(clk),
         .rst(rst),
 
