@@ -72,20 +72,21 @@ module ascon_aead(
     output logic                round_config_o,
     output logic     [2:0]      word_sel_o,  // target state word address S0,S1,.., S4
     output ascon_word_t         data_o,
-    output logic                write_en_o,
-    output logic                xor_en_o,
+    output logic                write_en_o,    output logic                write_en_o,
     output data_sel_t           in_data_sel_o,  //Mux select for core data_i source
-    input  ascon_word_t         core_data_i,
-
 
     // AD- AXI STREAM from padder unit
-
     input ascon_word_t     padded_tdata_i, //Pre-processed
     input logic [7:0]      padded_tkeep_i, //Pass - through for CT
-    input axi_tuser_t      padded_tuser_i, //Packet type
     input logic            padded_tlast_i, //last word in the message
-    input logic            padded_tvalid_i,
     output logic            padded_tready_o,
+
+    // Plaintext / Ciphertext - AX4 stream from padder unit
+    output ascon_word_t     m_axis_tdata_o,
+    output logic [2:0]      m_axis_tuser_o,
+    output logic            m_axis_tlast_o,
+    output logic            m_axis_tvalid_o,
+
 
 
     // Plaintext / Ciphertext - AX4 stream from padder unit
