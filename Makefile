@@ -26,7 +26,9 @@ VERILATOR_FLAGS = --binary -j 0 --timing --trace -Wall -Wno-fatal
 # Python vector generation
 PYTHON      ?= python3
 PY_SCRIPT   := verif/test_scripts/core_test.py
+AEAD_PY_SCRIPT := verif/test_scripts/aead_test.py
 VECTOR_FILE := verif/test_vectors/ascon_vectors.txt
+AEAD_VECTOR_FILE := verif/test_vectors/aead_vectors.txt
 
 # Default target
 all: run_all
@@ -35,8 +37,13 @@ all: run_all
 
 # Always regenerate vectors before simulation
 $(VECTOR_FILE): FORCE
-	@echo "=== Generating Python test vectors ==="
+	@echo "=== Generating Python Core test vectors ==="
 	$(PYTHON) $(PY_SCRIPT)
+
+$(AEAD_VECTOR_FILE): FORCE
+	@echo "=== Generating Python AEAD test vectors ==="
+	$(PYTHON) $(AEAD_PY_SCRIPT)
+
 
 # Loop through testbenches
 run_all:
