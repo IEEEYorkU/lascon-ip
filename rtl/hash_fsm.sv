@@ -69,6 +69,9 @@ module hash_fsm (
     logic [2:0] word_cnt, next_word_cnt;
     logic       is_final_perm, next_is_final_perm;
 
+    localparam ascon_word_t ASCON_HASH_IV_WORD0 = 64'h00000080100cc0002;
+    localparam ascon_word_t ASCON_XOF_IV_WORD0  = 64'h00000080100c40002;
+
     // (State machine logic goes here)
 
     // =======================================================================
@@ -165,19 +168,19 @@ module hash_fsm (
         m_axis_tkeep_o     = 8'hFF;
         data_o             = 64'b0;
 
-        unique case (state)
+        case (state)
             STATE_IDLE: begin
                 busy_o = 1'b0;
             end
 
             STATE_INIT: begin
                 write_en_o = 1'b1;
-                case (mode_i)
-                    ASCON_HASH: data_o = ASCON_HASH_IV[word_cnt];
-                    ASCON_XOF:  data_o = ASCON_XOF_IV[word_cnt];
-                    default:    data_o = ASCON_HASH_IV[word_cnt];
-                endcase
+            if (word_cnt == 3'd0) begin
+                data_o = (mode_i == ASCON_XOF) ? ASCON_XOF_IV_WORD0 : ASCON_HASH_IV_WORD0;
+            end else begin
+                data_o = 64'b0; // Words 1, 2, 3, and 4 are initialized to 0
             end
+        end
 
             STATE_PERM: begin
                 // Trigger permutation if core is idle
