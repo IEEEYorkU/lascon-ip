@@ -8,7 +8,7 @@
 `timescale 1ns/1ps
 import ascon_pkg::*;
 
-module tb_aead_fsm();
+module aead_fsm_tb;
 
     // =========================
     // Clock / Reset
@@ -16,6 +16,12 @@ module tb_aead_fsm();
     logic clk = 0;
     logic rst = 0;
     always #5 clk = ~clk;
+
+    // =========================
+    // AEAD Control
+    // =========================
+    ascon_mode_t mode_i;
+    logic start_i, busy_o, done_o, tag_fail_o;
 
     // =========================
     // AEAD <-> CORE Interface
@@ -29,37 +35,31 @@ module tb_aead_fsm();
     ascon_word_t   core_data_i;
 
     // =========================
-    // AEAD Control
-    // =========================
-    ascon_mode_t   mode_i;
-    logic          start_i, busy_o, done_o, tag_fail_o;
-
-    // =========================
     // AXI Input
     // =========================
-    ascon_word_t   padded_tdata_i;
-    logic [7:0]    padded_tkeep_i;
-    axi_tuser_t    padded_tuser_i;
-    logic          padded_tlast_i, padded_tvalid_i, padded_tready_o;
+    ascon_word_t padded_tdata_i;
+    logic [7:0]  padded_tkeep_i;
+    axi_tuser_t  padded_tuser_i;
+    logic        padded_tlast_i;
+    logic        padded_tvalid_i;
+    logic        padded_tready_o;
 
     // AXI Output
-    ascon_word_t   m_axis_tdata_o;
-    logic [7:0]    m_axis_tkeep_o;
-    logic [3:0]    m_axis_tuser_o;
-    logic          m_axis_tlast_o, m_axis_tvalid_o, m_axis_tready_i;
+    ascon_word_t m_axis_tdata_o;
+    logic [7:0]  m_axis_tkeep_o;
+    logic [3:0]  m_axis_tuser_o;
+    logic        m_axis_tlast_o;
+    logic        m_axis_tvalid_o;
+    logic        m_axis_tready_i;
 
     // =========================
-    // CORE signals
+    // Local constants
     // =========================
-    logic core_start;
-    logic core_ready;
-    logic core_write_en;
-    logic [2:0] core_word_sel;
-    ascon_word_t core_data_in, core_data_out;
-    logic core_round_cfg;
+    localparam ascon_mode_t ENC = MODE_AEAD_ENC;
+    localparam ascon_mode_t DEC = MODE_AEAD_DEC;
 
     // =========================
-    // DUT: AEAD
+    // AEAD Instantiation
     // =========================
     aead_fsm dut (
         .clk(clk),
@@ -98,7 +98,7 @@ module tb_aead_fsm();
     );
 
     // =========================
-    // DUT: CORE (REAL PERMUTATION)
+    // Ascon Core Instantiation
     // =========================
     ascon_core core (
         .clk(clk),
@@ -116,6 +116,21 @@ module tb_aead_fsm();
     );
 
     // =========================
+    // Debug (optional)
+    // =========================
+    /*
+    always @(posedge clk) begin
+        $display("busy=%0d ready=%0d tvalid=%0d tready=%0d",
+            busy_o, ascon_ready_i, padded_tvalid_i, padded_tready_o);
+    end
+    */
+
+    always @(posedge clk) begin
+        if (start_perm_o && !ascon_ready_i)
+            $error("[CORE ERROR] start_perm_o asserted while core busy!");
+    end
+
+    // =========================
     // AXI Driver
     // =========================
     task automatic send_word(
@@ -123,30 +138,57 @@ module tb_aead_fsm();
         input axi_tuser_t user,
         input logic last
     );
-        @(negedge clk);
-        padded_tdata_i  = data;
-        padded_tuser_i  = user;
-        padded_tlast_i  = last;
-        padded_tkeep_i  = 8'hFF;
-        padded_tvalid_i = 1;
+        int timeout = 5000;
 
-        wait (padded_tready_o);
-        @(negedge clk);
-        padded_tvalid_i = 0;
+        // Drive and hold
+        padded_tdata_i  <= data;
+        padded_tuser_i  <= user;
+        padded_tlast_i  <= last;
+        padded_tkeep_i  <= 8'hFF;
+        padded_tvalid_i <= 1;
+
+        // Wait for handshake
+        // Currently Failing, handshake not working
+        while (!(padded_tvalid_i && padded_tready_o) && timeout > 0) begin
+            @(posedge clk);
+            timeout--;
+        end
+
+        if (timeout == 0)
+            $fatal("[TIMEOUT] AXI input handshake failed");
+
+        // Complete transfer
+        @(posedge clk);
+        padded_tvalid_i <= 0;
     endtask
 
     // =========================
     // AXI Read
     // =========================
     task automatic read_block(output logic [127:0] data);
+        int timeout = 5000;
         logic [63:0] w0, w1;
 
-        wait (m_axis_tvalid_o);
-        @(posedge clk); w0 = m_axis_tdata_o;
+        while (!m_axis_tvalid_o && timeout > 0) begin
+            @(posedge clk);
+            timeout--;
+        end
+        if (timeout == 0)
+            $fatal("[TIMEOUT] No AXI output");
 
-        wait (m_axis_tvalid_o);
-        @(posedge clk); w1 = m_axis_tdata_o;
+        w0 = m_axis_tdata_o;
 
+        timeout = 5000;
+        @(posedge clk);
+
+        while (!m_axis_tvalid_o && timeout > 0) begin
+            @(posedge clk);
+            timeout--;
+        end
+        if (timeout == 0)
+            $fatal("[TIMEOUT] Missing AXI word");
+
+        w1 = m_axis_tdata_o;
         data = {w0, w1};
     endtask
 
@@ -172,7 +214,7 @@ module tb_aead_fsm();
     endtask
 
     // =========================
-    // Test
+    // Test Vectors
     // =========================
     int fd, r;
 
@@ -181,8 +223,17 @@ module tb_aead_fsm();
     logic [127:0] v_din, v_exp_dout, v_exp_tag;
     logic [127:0] dout, tag;
 
+    // =========================
+    // TEST
+    // =========================
     initial begin
+        // Init signals
         padded_tvalid_i = 0;
+        padded_tdata_i  = 0;
+        padded_tuser_i  = TUSER_RESERVED;
+        padded_tlast_i  = 0;
+        padded_tkeep_i  = 0;
+
         m_axis_tready_i = 1;
         start_i = 0;
 
@@ -204,24 +255,22 @@ module tb_aead_fsm();
 
             mode_i = v_mode ? ENC : DEC;
 
-            // Start
-            wait (!busy_o);
-            @(negedge clk);
+            // Start aligned with first word
+            @(posedge clk);
             start_i = 1;
-            @(negedge clk);
+
+            send_word(v_key[127:64],   TUSER_KEY,   0);
+
+            @(posedge clk);
             start_i = 0;
 
-            // Key + Nonce
-            send_word(v_key[127:64],   TUSER_KEY,   0);
             send_word(v_key[63:0],     TUSER_KEY,   0);
             send_word(v_nonce[127:64], TUSER_NONCE, 0);
             send_word(v_nonce[63:0],   TUSER_NONCE, 1);
 
-            // AD
             send_word(v_ad[127:64], TUSER_AD, 0);
             send_word(v_ad[63:0],   TUSER_AD, 1);
 
-            // Payload
             if (v_mode) begin
                 send_word(v_din[127:64], TUSER_PT, 0);
                 send_word(v_din[63:0],   TUSER_PT, 1);
@@ -233,7 +282,15 @@ module tb_aead_fsm();
                 send_word(v_exp_tag[63:0],   TUSER_TAG, 1);
             end
 
-            wait (done_o);
+            // Wait for completion
+            int timeout = 10000;
+            while (!done_o && timeout > 0) begin
+                @(posedge clk);
+                timeout--;
+            end
+
+            if (timeout == 0)
+                $fatal("[TIMEOUT] done_o not asserted");
 
             read_block(dout);
             read_block(tag);
