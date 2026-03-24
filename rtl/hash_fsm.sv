@@ -57,89 +57,110 @@ module hash_fsm (
     // =======================================================================
     // FSM State Declarations & Logic
     // =======================================================================
-    typedef enum {
+    typedef enum logic [2:0] {
         STATE_IDLE,
         STATE_INIT,
-        STATE_PERM,
+        STATE_PERM_START,
+        STATE_PERM_WAIT,
         STATE_ABSORB,
         STATE_SQUEEZE,
         STATE_DONE
     } state_t;
-    state_t state, next_state;
 
-    logic [2:0] word_cnt, next_word_cnt;
-    logic       is_final_perm, next_is_final_perm;
+    // Track whether the next permutation returns to Absorb or Squeeze
+    typedef enum logic {
+        PHASE_ABSORB  = 1'b0,
+        PHASE_SQUEEZE = 1'b1
+    } phase_t;
+
+    state_t state, next_state;
+    phase_t phase_reg, next_phase;
+
+    logic [31:0] word_cnt, next_word_cnt; // Widened to 32-bit for XOF lengths
+    logic [31:0] target_squeeze_words;
+
+    // Calculate how many 64-bit words to squeeze based on xof_len_i (in bytes)
+    assign target_squeeze_words = (mode_i == MODE_HASH256) ? 32'd4 : ((xof_len_i + 32'd7) >> 3);
 
     localparam ascon_word_t ASCON_HASH_IV_WORD0  = 64'h0000080100cc0002;
     localparam ascon_word_t ASCON_XOF_IV_WORD0   = 64'h0000080000cc0003;
     localparam ascon_word_t ASCON_CXOF_IV_WORD0  = 64'h0000080000cc0004;
 
-    // (State machine logic goes here)
-
     // =======================================================================
-    // CONTROL FSM
+    // STATE REGISTER UPDATES
     // =======================================================================
-    always @(posedge clk or posedge rst) begin
+    always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            state         <= STATE_IDLE;
-            word_cnt      <= 3'd0;
-            is_final_perm <= 1'b0;
+            state     <= STATE_IDLE;
+            phase_reg <= PHASE_ABSORB;
+            word_cnt  <= 32'd0;
         end else begin
-            state         <= next_state;
-            word_cnt      <= next_word_cnt;
-            is_final_perm <= next_is_final_perm;
+            state     <= next_state;
+            phase_reg <= next_phase;
+            word_cnt  <= next_word_cnt;
         end
     end
 
-    // =======================================================================
+// =======================================================================
     // NEXT STATE DECODER
     // =======================================================================
     always_comb begin
-        next_state         = state;
-        next_word_cnt      = word_cnt;
-        next_is_final_perm = is_final_perm;
+        // Default Values
+        next_state    = state;
+        next_word_cnt = word_cnt;
+        next_phase    = phase_reg;
 
         unique case (state)
             STATE_IDLE: begin
-                next_is_final_perm = 1'b0;
-                if (start_i) next_state = STATE_INIT;
-            end
-
-            STATE_INIT: begin
-                if (word_cnt == 3'd4) begin
-                    next_word_cnt = 3'd0;
-                    next_state    = STATE_PERM;
-                end else begin
-                    next_word_cnt = word_cnt + 3'd1;
+                if (start_i) begin
+                    next_state = STATE_INIT;
+                    next_phase = PHASE_ABSORB;
                 end
             end
 
-            STATE_PERM: begin
+            STATE_INIT: begin
+                if (word_cnt == 32'd4) begin
+                    next_word_cnt = 32'd0;
+                    next_state    = STATE_PERM_START; // Permute the IV
+                end else begin
+                    next_word_cnt = word_cnt + 32'd1;
+                end
+            end
+
+            STATE_PERM_START: begin
+                next_state = STATE_PERM_WAIT;
+            end
+
+            STATE_PERM_WAIT: begin
                 if (ascon_ready_i) begin
-                    if (is_final_perm) begin
-                        next_state    = STATE_SQUEEZE;
-                        next_word_cnt = 3'd0;
+                    // Use the phase tracker to return to the correct loop
+                    if (phase_reg == PHASE_ABSORB) begin
+                        next_state = STATE_ABSORB;
                     end else begin
-                        next_state    = STATE_ABSORB;
+                        next_state = STATE_SQUEEZE;
                     end
                 end
             end
 
             STATE_ABSORB: begin
                 if (padded_tvalid_i && padded_tready_o) begin
-                    next_state = STATE_PERM;
-                    if (padded_tlast_i) next_is_final_perm = 1'b1;
+                    next_state = STATE_PERM_START; // Hash permutes after EVERY block
+                    if (padded_tlast_i) begin
+                        next_phase    = PHASE_SQUEEZE;
+                        next_word_cnt = 32'd0;
+                    end
                 end
             end
 
             STATE_SQUEEZE: begin
                 if (m_axis_tready_i && m_axis_tvalid_o) begin
-                    // Condition for Hash256 (4 words) or XOF abort
-                    if (word_cnt == 3'd3 || abort_i) begin
+                    next_word_cnt = word_cnt + 32'd1;
+                    // Check Termination Conditions (Hash256=4 words, or XOF Abort/Length)
+                    if (abort_i || (xof_len_i > 0 && next_word_cnt == target_squeeze_words)) begin
                         next_state = STATE_DONE;
                     end else begin
-                        next_word_cnt = word_cnt + 3'd1;
-                        next_state    = STATE_PERM;
+                        next_state = STATE_PERM_START; // Permute between EVERY squeeze block
+                        next_phase = PHASE_SQUEEZE;
                     end
                 end
             end
@@ -147,8 +168,6 @@ module hash_fsm (
             STATE_DONE: begin
                 next_state = STATE_IDLE;
             end
-
-            default: next_state = STATE_IDLE;
         endcase
     end
 
@@ -160,16 +179,16 @@ module hash_fsm (
         busy_o             = 1'b1;
         done_o             = 1'b0;
         start_perm_o       = 1'b0;
-        round_config_o     = 1'b1; // Default to p^12 for Ascon-Hash/XOF
+        round_config_o     = 1'b0; // 0 = p^12 for Ascon-Hash/XOF
         write_en_o         = 1'b0;
-        word_sel_o         = word_cnt;
-        core_in_data_sel_o = 2'b00;
-        xor_sel_o          = 2'b00;
+        word_sel_o         = word_cnt[2:0];
+        core_in_data_sel_o = DATA_IN_HASH_SEL; // Default to FSM data
+        xor_sel_o          = XOR_IN_AXI_SEL;
         padded_tready_o    = 1'b0;
         m_axis_tvalid_o    = 1'b0;
         m_axis_tlast_o     = 1'b0;
         m_axis_tkeep_o     = 8'hFF;
-        m_axis_tuser_o     = padded_tuser_i;
+        m_axis_tuser_o     = TUSER_DIGEST;
         data_o             = 64'b0;
 
         unique case (state)
@@ -179,31 +198,42 @@ module hash_fsm (
 
             STATE_INIT: begin
                 write_en_o = 1'b1;
-                if (word_cnt == 3'd0) begin
+                // Initialize Core S0 with IV
+                if (word_cnt == 32'd0) begin
                     unique case (mode_i)
-                        MODE_XOF:  data_o = ASCON_XOF_IV_WORD0;
-                        MODE_CXOF: data_o = ASCON_CXOF_IV_WORD0;
-                        default:    data_o = ASCON_HASH_IV_WORD0;
+                        MODE_XOF:     data_o = ASCON_XOF_IV_WORD0;
+                        MODE_CXOF:    data_o = ASCON_CXOF_IV_WORD0;
+                        default:      data_o = ASCON_HASH_IV_WORD0;
                     endcase
+                // Initialize Core S1/S2/S3/S4 with 0
                 end else begin
                     data_o = 64'b0;
                 end
             end
 
-            STATE_PERM: begin
-                // Trigger permutation if core is idle
-                if (ascon_ready_i) start_perm_o = 1'b1;
+            STATE_PERM_START: begin
+                start_perm_o = 1'b1; // Safe 1-cycle trigger pulse
+            end
+
+            STATE_PERM_WAIT: begin
+                // Hold idle while waiting for core
             end
 
             STATE_ABSORB: begin
-                padded_tready_o = 1'b1; // Explicitly signal we are ready for the padder
-                if (padded_tvalid_i) xor_sel_o = 2'b01;
+                padded_tready_o = 1'b1;
+                if (padded_tvalid_i) begin
+                    write_en_o         = 1'b1;
+                    word_sel_o         = 3'd0; // Hash absorbs ONLY into S0
+                    core_in_data_sel_o = DATA_IN_XOR_SEL;
+                end
             end
 
             STATE_SQUEEZE: begin
                 m_axis_tvalid_o = 1'b1;
-                m_axis_tuser_o  = TUSER_DIGEST;
-                if (word_cnt == 3'd3 || abort_i) begin
+                word_sel_o      = 3'd0; // Squeeze ONLY from S0
+
+                // Assert TLAST on the final beat (if not in continuous mode)
+                if (abort_i || (xof_len_i > 0 && (word_cnt + 32'd1 == target_squeeze_words))) begin
                     m_axis_tlast_o = 1'b1;
                 end
             end
@@ -211,6 +241,8 @@ module hash_fsm (
             STATE_DONE: begin
                 done_o = 1'b1;
             end
+
+            default: ;
         endcase
     end
 
