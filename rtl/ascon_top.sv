@@ -101,7 +101,6 @@ module ascon_top (
     logic   [2:0]   core_word_sel_i;
     ascon_word_t    core_data_i;
     logic           core_write_en_i;
-    logic           core_xor_en_i;
     ascon_word_t    core_data_o;
     logic           core_ready_o;
     logic [1:0]     core_in_data_sel;
@@ -113,7 +112,6 @@ module ascon_top (
     logic [2:0]     aead_word_sel, hash_word_sel;
     logic           aead_start_perm, hash_start_perm;
     logic           aead_round_config, hash_round_config;
-    logic           aead_xor_en, hash_xor_en;
     ascon_word_t    aead_data_o, hash_data_o;
     logic [1:0]     aead_xor_sel, hash_xor_sel;
     data_sel_t     aead_in_data_sel, hash_in_data_sel;
@@ -191,7 +189,6 @@ module ascon_top (
             core_round_config_i = aead_round_config;
             core_word_sel_i     = aead_word_sel;
             core_write_en_i     = aead_write_en;
-            core_xor_en_i       = aead_xor_en;
             core_in_data_sel    = aead_in_data_sel;
             xor_in_op2_sel      = aead_xor_sel;
 
@@ -210,13 +207,12 @@ module ascon_top (
             core_round_config_i = hash_round_config;
             core_word_sel_i     = hash_word_sel;
             core_write_en_i     = hash_write_en;
-            core_xor_en_i       = hash_xor_en;
             core_in_data_sel    = hash_in_data_sel;
             xor_in_op2_sel      = hash_xor_sel;
 
             // AXI Stream Handshake Muxing
             padded_tready       = hash_s_axis_tready;
-            m_axis_tdata        = hash_m_axis_tdata;
+            m_axis_tdata        = core_data_o;
             m_axis_tvalid       = hash_m_axis_tvalid;
             m_axis_tlast        = hash_m_axis_tlast;
             m_axis_tuser        = hash_m_axis_tuser;
@@ -338,6 +334,21 @@ module ascon_top (
             DATA_IN_XOR_SEL  : core_data_i = xor_res;
             default          : core_data_i = 64'd0;
         endcase
+    end
+
+    // =========================================================================
+    // Top-Level Status Routing
+    // =========================================================================
+    always_comb begin
+        if (mode_i == MODE_AEAD_ENC || mode_i == MODE_AEAD_DEC) begin
+            busy_o     = aead_busy;
+            done_o     = aead_done;
+            tag_fail_o = aead_tag_fail;
+        end else begin
+            busy_o     = hash_busy;
+            done_o     = hash_done;
+            tag_fail_o = 1'b0; // Hash/XOF never fails a MAC check
+        end
     end
 
 endmodule
