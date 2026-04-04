@@ -108,7 +108,6 @@ module ascon_top_tb;
         ascon_word_t hw_digest[4];
         int words_collected = 0;
 
-        $display("=========================================================================");
         $display("[RUNNING] %s", test_name);
 
         apply_reset();
@@ -171,9 +170,13 @@ module ascon_top_tb;
     initial begin
         $display("\n=========================================================================");
         $display("   Ascon System Integration & Math Verification");
+        $display("=========================================================================");
+
+        $display(" \nAscon-Hash256 Tests");
+        $display("-------------------------------------------------------------------------");
 
         // -------------------------------------------------------------------
-        // TEST 1: Empty Message Debug (0 Bytes)
+        // Ascon-Hash256 TEST 1: Empty Message Debug (0 Bytes)
         // -------------------------------------------------------------------
         sw_ref_state[0] = 64'h0000080100cc0002;
         sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
@@ -186,13 +189,13 @@ module ascon_top_tb;
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[2] = sw_ref_state[0];
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[3] = sw_ref_state[0];
 
-        execute_hash_test("Empty Message (0 Bytes)", exp_digest,
+        execute_hash_test("Ascon-Hash256: Empty Message (0 Bytes)", exp_digest,
             '{64'h0000_0000_0000_0000}, // LE Data
             '{8'h00}                    // Keep
         );
 
         // -------------------------------------------------------------------
-        // TEST 2: Exact Block Boundary (8 Bytes: "password")
+        // Ascon-Hash256 TEST 2: Exact Block Boundary (8 Bytes: "password")
         // -------------------------------------------------------------------
         sw_ref_state[0] = 64'h0000080100cc0002;
         sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
@@ -207,7 +210,7 @@ module ascon_top_tb;
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[2] = sw_ref_state[0];
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[3] = sw_ref_state[0];
 
-        execute_hash_test("Exact Block Boundary ('password')", exp_digest,
+        execute_hash_test("Ascon-Hash256: Exact Block Boundary ('password')", exp_digest,
             '{64'h6472_6f77_7373_6170},
             '{8'hFF}
         );
@@ -228,7 +231,7 @@ module ascon_top_tb;
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[2] = sw_ref_state[0];
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[3] = sw_ref_state[0];
 
-        execute_hash_test("Multi-Beat Unaligned ('hello world')", exp_digest,
+        execute_hash_test("Ascon-Hash256: Multi-Beat Unaligned ('hello world')", exp_digest,
             '{64'h6f77_206f_6c6c_6568, 64'h0000_0000_0064_6c72},
             '{8'hFF, 8'h07}
         );
@@ -247,10 +250,13 @@ module ascon_top_tb;
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[2] = sw_ref_state[0];
         sw_ref_state  = ascon_perm(1'b1, sw_ref_state); exp_digest[3] = sw_ref_state[0];
 
-        execute_hash_test("Single-Beat Unaligned ('ascon')", exp_digest,
+        execute_hash_test("Ascon-Hash256: Single-Beat Unaligned ('ascon')", exp_digest,
             '{64'h0000_006e_6f63_7361},
             '{8'h1F}
         );
+
+        $display(" \nAscon-XOF128 Tests");
+        $display("-------------------------------------------------------------------------");
 
         $display("\n=========================================================================");
         $display("   ALL AXI STREAM AND MATH TESTS PASSED!");
