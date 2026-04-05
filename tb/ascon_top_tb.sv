@@ -173,7 +173,7 @@ module ascon_top_tb;
             end
         end
 
-        $display("   [PASS] Math & Protocol Verified.\n");
+        $display("   [PASS]");
     endtask
 
     // =======================================================================
@@ -416,6 +416,204 @@ module ascon_top_tb;
 
         $display(" \nAscon-CXOF128 Tests");
         $display("-------------------------------------------------------------------------");
+
+        // -------------------------------------------------------------------
+        // Ascon-CXOF128 TEST 1: Empty Z, Empty M, 16-Byte Output (2 Words)
+        // -------------------------------------------------------------------
+        exp_digest = new[2];
+
+        // 1. Calculate Expected Result using Software Reference Model (BIG ENDIAN)
+        // --- Initialization ---
+        sw_ref_state[0] = 64'h0000080000cc0004; // <-- CXOF128 IV ends in 4!
+        sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Customization (Z) ---
+        // Z_0: Length of Z in bits (0 bytes = 0 bits)
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h0000_0000_0000_0000;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        // Z_1: Pad(Empty Z)
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h8000_0000_0000_0000;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Absorbing (M) ---
+        // M_0: Pad(Empty M)
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h8000_0000_0000_0000;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Squeezing (16 Bytes = 2 Words) ---
+        exp_digest[0] = sw_ref_state[0];
+        sw_ref_state  = ascon_perm(1'b1, sw_ref_state);
+        exp_digest[1] = sw_ref_state[0];
+
+        // 2. Execute Test
+        execute_hash_test("Ascon-CXOF128: Empty Z, Empty M (16-Byte Squeeze)",
+            MODE_CXOF, 16, exp_digest,
+            '{64'h0000_0000_0000_0000, 64'h0000_0000_0000_0000, 64'h0000_0000_0000_0000}, // Z_0, Z_pad, M_pad
+            '{8'hFF, 8'h00, 8'h00},                    // Keeps
+            '{TUSER_Z, TUSER_Z, TUSER_MSG},            // Users (FSM domain separation)
+            '{1'b0, 1'b1, 1'b1}                        // Lasts (Trigger permutations)
+        );
+
+        // -------------------------------------------------------------------
+        // Ascon-CXOF128 TEST 2: Valid Z and M, 32-Byte Output (4 Words)
+        // -------------------------------------------------------------------
+        exp_digest = new[4];
+
+        // 1. Calculate Expected Result using Software Reference Model (BIG ENDIAN)
+        // --- Initialization ---
+        sw_ref_state[0] = 64'h0000080000cc0004; // CXOF128 IV
+        sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Customization (Z = "custom") ---
+        // Z_0: Length of Z in bits (6 bytes * 8 = 48 bits = 0x30)
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h0000_0000_0000_0030;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        // Z_1: "custom" + Pad (6 bytes) -> 64'h6375_7374_6f6d_8000
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h6375_7374_6f6d_8000;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Absorbing (M = "message") ---
+        // M_0: "message" + Pad (7 bytes) -> 64'h6d65_7373_6167_6580
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h6d65_7373_6167_6580;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Squeezing (32 Bytes = 4 Words) ---
+        for (int i = 0; i < 4; i++) begin
+            exp_digest[i] = sw_ref_state[0];
+            if (i < 3) sw_ref_state = ascon_perm(1'b1, sw_ref_state);
+        end
+
+        // 2. Execute Test
+        // Note: We use Little-Endian for the AXI data array
+        // Z_0 = 0x30. Byte-swapped for AXI LE = 64'h3000_0000_0000_0000
+        // "custom"  = 6d 6f 74 73 75 63 -> 64'h0000_6d6f_7473_7563 (tkeep: 0x3F)
+        // "message" = 65 67 61 73 73 65 6d -> 64'h0065_6761_7373_656d (tkeep: 0x7F)
+        execute_hash_test("Ascon-CXOF128: Valid Z ('custom') and M ('message')",
+            MODE_CXOF, 32, exp_digest,
+            '{64'h3000_0000_0000_0000, 64'h0000_6d6f_7473_7563, 64'h0065_6761_7373_656d}, // Z_0 (swapped), Z_data, M_data
+            '{8'hFF, 8'h3F, 8'h7F},                    // Keeps
+            '{TUSER_Z, TUSER_Z, TUSER_MSG},            // Users
+            '{1'b0, 1'b1, 1'b1}                        // Lasts
+        );
+
+        // -------------------------------------------------------------------
+        // Ascon-CXOF128 TEST 3: Exact Block Boundary Z (8 Bytes) + Short M
+        // -------------------------------------------------------------------
+        // Z = "password" (8 bytes -> 64 bits = 0x40)
+        // M = "ascon" (5 bytes)
+        exp_digest = new[4];
+
+        // 1. Calculate Expected Result
+        sw_ref_state[0] = 64'h0000080000cc0004; // CXOF128 IV
+        sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Customization (Z) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h0000_0000_0000_0040; // Length = 64 bits (0x40)
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h70617373776f7264;    // "password"
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h8000_0000_0000_0000; // Padder spillover
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Absorbing (M) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h6173636f6e800000;    // "ascon" + Pad
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Squeezing ---
+        for (int i = 0; i < 4; i++) begin
+            exp_digest[i] = sw_ref_state[0];
+            if (i < 3) sw_ref_state = ascon_perm(1'b1, sw_ref_state);
+        end
+
+        // 2. Execute Test
+        execute_hash_test("Ascon-CXOF128: Block Boundary Z ('password'), Short M ('ascon')",
+            MODE_CXOF, 32, exp_digest,
+            '{64'h4000_0000_0000_0000, 64'h6472_6f77_7373_6170, 64'h0000_006e_6f63_7361}, // Z_0, Z_data, M_data
+            '{8'hFF, 8'hFF, 8'h1F},                    // Keeps (Note Z_data is 0xFF, forcing spillover)
+            '{TUSER_Z, TUSER_Z, TUSER_MSG},            // Users
+            '{1'b0, 1'b1, 1'b1}                        // Lasts
+        );
+
+        // -------------------------------------------------------------------
+        // Ascon-CXOF128 TEST 4: Multi-Beat Z (11 Bytes) and M (11 Bytes)
+        // -------------------------------------------------------------------
+        // Z = "custom_str!" (11 bytes -> 88 bits = 0x58)
+        // M = "hello world" (11 bytes)
+        exp_digest = new[4];
+
+        // 1. Calculate Expected Result
+        sw_ref_state[0] = 64'h0000080000cc0004; // CXOF128 IV
+        sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Customization (Z) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h0000_0000_0000_0058; // Length = 88 bits (0x58)
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h637573746f6d5f73;    // "custom_s"
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h7472218000000000;    // "tr!" + pad
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Absorbing (M) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h68656c6c6f20776f;    // "hello wo"
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h726c648000000000;    // "rld" + pad
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Squeezing ---
+        for (int i = 0; i < 4; i++) begin
+            exp_digest[i] = sw_ref_state[0];
+            if (i < 3) sw_ref_state = ascon_perm(1'b1, sw_ref_state);
+        end
+
+        // 2. Execute Test
+        execute_hash_test("Ascon-CXOF128: Multi-Beat Z ('custom_str!') and M ('hello world')",
+            MODE_CXOF, 32, exp_digest,
+            '{64'h5800_0000_0000_0000, 64'h735f_6d6f_7473_7563, 64'h0000_0000_0021_7274, 64'h6f77_206f_6c6c_6568, 64'h0000_0000_0064_6c72},
+            '{8'hFF, 8'hFF, 8'h07, 8'hFF, 8'h07},
+            '{TUSER_Z, TUSER_Z, TUSER_Z, TUSER_MSG, TUSER_MSG},
+            '{1'b0, 1'b0, 1'b1, 1'b0, 1'b1}
+        );
+
+        // -------------------------------------------------------------------
+        // Ascon-CXOF128 TEST 5: Infinite Squeeze & Abort
+        // -------------------------------------------------------------------
+        // Z = "Z" (1 byte -> 8 bits = 0x08)
+        // M = "M" (1 byte)
+        exp_digest = new[6]; // We will collect 6 words then abort
+
+        // 1. Calculate Expected Result
+        sw_ref_state[0] = 64'h0000080000cc0004; // CXOF128 IV
+        sw_ref_state[1] = 64'b0; sw_ref_state[2] = 64'b0; sw_ref_state[3] = 64'b0; sw_ref_state[4] = 64'b0;
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Customization (Z) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h0000_0000_0000_0008; // Length = 8 bits (0x08)
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h5a80_0000_0000_0000; // "Z" + pad
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Absorbing (M) ---
+        sw_ref_state[0] = sw_ref_state[0] ^ 64'h4d80_0000_0000_0000; // "M" + pad
+        sw_ref_state    = ascon_perm(1'b1, sw_ref_state);
+
+        // --- Squeezing ---
+        for (int i = 0; i < 6; i++) begin
+            exp_digest[i] = sw_ref_state[0];
+            if (i < 5) sw_ref_state = ascon_perm(1'b1, sw_ref_state);
+        end
+
+        // 2. Execute Test (xof_len_bytes = 0)
+        execute_hash_test("Ascon-CXOF128: Infinite Squeeze & Abort",
+            MODE_CXOF, 0, exp_digest,
+            '{64'h0800_0000_0000_0000, 64'h0000_0000_0000_005a, 64'h0000_0000_0000_004d}, // Z_0, 'Z', 'M'
+            '{8'hFF, 8'h01, 8'h01},
+            '{TUSER_Z, TUSER_Z, TUSER_MSG},
+            '{1'b0, 1'b1, 1'b1}
+        );
 
         $display("\n=========================================================================");
         $display("   ALL AXI STREAM AND MATH TESTS PASSED!");
