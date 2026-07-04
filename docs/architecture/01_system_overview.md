@@ -1,7 +1,7 @@
 # System Overview: Ascon Hardware Accelerator
 
 ## Introduction to NIST SP 800-232
-This project is a SystemVerilog hardware accelerator for the **NIST SP 800-232 Standard: Ascon-Based Lightweight Cryptography Standards for Constrained Devices**[cite: 1].
+This project is a SystemVerilog hardware accelerator for the **NIST SP 800-232 Standard: Ascon-Based Lightweight Cryptography Standards for Constrained Devices**.
 
 Ascon is a family of cryptographic algorithms designed to provide efficient Authenticated Encryption with Associated Data (AEAD), hash functions, and extendable Output Functions (XOF). It was selected by NIST specifically for resource-constrained environments—such as Internet of Things (IoT) devices, embedded systems, and low-power sensors—where traditional standards like AES-GCM may be too resource-intensive or consume too much power.
 
@@ -9,20 +9,25 @@ In a real-world scenario, this hardware module operates as a dedicated cryptogra
 
 ---
 
-## Architectural Design Strategy: The Hierarchical "Permutation Sequencer"
+## Architectural Design Strategy: The Decoupled Data/Control Paradigm
 
-To effectively implement the Ascon suite, this Lassonde Hardware Design Club accelerator employs a "Decoupled Data/Control" methodology. This strategy decouples the high-level protocol logic from the low-level permutation mechanics.
+To maximize modularity and design clarity, the accelerator employs a strict **"Decoupled Data/Control"** strategy. This philosophy divides the architecture into four distinct, specialized components:
 
-### 1. The Datapath (The "Slave" Core)
-The `ascon_core` acts as a "slave" unit containing the 320-bit state, permutation layers, and a dedicated round counter/controller. This core executes the requested number of mathematical rounds (e.g., $p^{12}$ or $p^8$) and signals completion. It serves as a pure permutation engine and is entirely isolated from understanding the broader cryptographic context (such as whether it is currently hashing or encrypting).
+### 1. The Ascon Core (The "Muscle")
+The `ascon_core` module is a protocol-agnostic cryptographic mathematical engine. It solely maintains the 320-bit state and executes the round permutations ($p_C$, $p_S$, and $p_L$). It does not possess any knowledge of padding rules, AXI handshaking, or high-level modes (AEAD vs. Hash); it simply executes rounds upon request and notifies controllers when it is ready.
 
-### 2. The Control Path (The "Master" FSMs)
-The high-level Algorithm FSMs (such as AEAD and Hash) function as "masters" that sequence the protocol steps. Their responsibilities include:
-* Loading the Key, Nonce, and Initialization Vectors (IV).
-* Feeding input blocks into the state (the absorbing phase).
-* Requesting permutation runs from the core.
+### 2. The AXI4-Stream Padder (The "Framer")
+The `ascon_padder` serves as a dedicated pre-processor. It intercepts raw incoming data from the outside world, converts Little-Endian data to Big-Endian, and applies the precise bit-level padding and rate-alignment rules defined by NIST SP 800-232. By handling byte-masking and multi-cycle padding carry blocks internally, it abstracts all formatting concerns, outputting a clean, rate-aligned 64-bit stream to the internal logic.
 
-The FSMs operate without managing the cycle-by-cycle details of the cryptographic rounds.
+### 3. Protocol Controllers (The "Brains")
+The high-level protocol FSMs (`aead_fsm` and `hash_fsm`) sequence the cryptographic algorithms. They manage standard AXI-stream flow control, track sponge construction phases (Initialization, Absorbing, and Squeezing), and issue cycle-by-cycle command signals to route data and trigger permutations. They remain entirely unburdened by low-level math or padding rules.
 
-### Summary
-This separation of concerns creates a cleaner, highly modular design where the core handles the heavy mathematics (Constant-Addition $p_C$, Substitution $p_S$, and Linear Diffusion $p_L$), and the FSMs strictly handle the data routing and AXI-stream flow control.
+### 4. Top-Level Arbiter/Wrapper (The "Traffic Director")
+The `ascon_top` module integrates all sub-modules. Based on the selected operating mode (`mode_i`), it multiplexes control wires, handshakes, and datapath routes between the active protocol controller and the shared hardware resources (the Padder, the Ascon Core, and the external `xor64` block).
+
+---
+
+## Summary of Benefits
+By dividing concerns in this manner:
+* **Decryption Conflict Solved:** The FSMs can coordinate state updates externally without forcing complex, multi-purpose logic inside the core state registers.
+* **Ease of Verification:** Individual components (like the Padder or Core) can be isolated and verified against their specific requirements independently of the high-level state machines.
