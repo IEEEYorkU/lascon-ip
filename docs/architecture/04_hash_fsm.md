@@ -11,9 +11,9 @@ Its primary purpose is to manage the AXI4-Stream protocol handshaking, track the
 In this accelerator's architecture, the `hash_fsm` operates strictly as the "Brains" for hashing operations, leaving the "Muscle" (mathematics) to the `ascon_core` and the bit-level formatting to the `ascon_padder`.
 
 This decoupled philosophy manifests in several key ways:
-* **Zero Padding Logic:** The FSM does not process raw byte-enables (`TKEEP`). It receives fully formatted, rate-aligned 64-bit blocks (`padded_tdata`) from the Padder/Framer unit.
+* **Zero Padding Logic:** The FSM does not process raw byte-enables (`TKEEP`) or message data (`TDATA`). It only receives AXI-Stream handshake control signals (`padded_tvalid_i`, `padded_tlast_i`) and packet metadata (`padded_tuser_i`) from the Padder/Framer unit, while the 64-bit data stream (`padded_tdata`) is routed directly to the Core/XOR unit.
 * **Externalized XOR:** During the absorbing phase, the FSM does not compute the internal `S0 <- S0 XOR M_i` operation. Instead, it asserts `xor_sel_o` and `core_in_data_sel_o` to route the padded AXI stream and the core's state through the top-level `xor64` unit.
-* **Datapath Bypass (Squeezing):** During the squeezing phase, the FSM does not read data out of the core to pass it to the AXI Master bus. Instead, the top-level arbiter routes the core's output (`core_data_o`) directly to `m_axis_tdata`. The FSM merely sets the correct word select address (`S0`) and manages the `tvalid`/`tready` handshake.
+* **Datapath Bypass (Squeezing):** During the squeezing phase, the FSM does not read data out of the core to pass it to the AXI Master bus. Instead, the top-level arbiter routes the core's output (`core_data_o`) directly to `m_axis_tdata` (with byte swapping applied). The FSM merely sets the correct word select address (`S0`) and manages the `tvalid`/`tready` handshake.
 
 ---
 
@@ -26,12 +26,13 @@ Upon receiving a `start_i` pulse, the FSM assesses the `mode_i` configuration. I
 #### B. Absorbing Phase
 The FSM continuously asserts `padded_tready_o` to pull in 64-bit message blocks.
 * For each valid block, it routes the data through the top-level XOR into the `S0` register.
-* If the block arrives alongside `padded_tlast_i == 1`, the FSM triggers the `p^12` permutation, marking the transition into the Squeezing phase.
+* The FSM triggers a `p^12` permutation after each valid block is absorbed. If the block arrives alongside `padded_tlast_i == 1` and is not a Customization String (`TUSER_Z`), it transitions the state machine from the Absorbing phase into the Squeezing phase.
+* **CXOF Special Handling:** If the final byte of a customization string block is detected (`padded_tlast_i == 1` with `padded_tuser_i == TUSER_Z`), the FSM runs the `p^12` permutation but remains in the Absorbing phase to await the actual message.
 
 #### C. Squeezing & Continuous XOF Mode
 Because XOF (Extendable Output Function) algorithms can produce infinitely long digests, the `hash_fsm` supports two distinct squeezing methodologies, configurable via `xof_len_i`:
 * **Fixed-Length Mode (`xof_len_i > 0`):** The FSM tracks the number of squeezed bytes. It continuously triggers 12-round permutations, outputting 64-bit blocks until the requested length is met, at which point it asserts `m_axis_tlast_o` and returns to IDLE.
-* **Continuous / Rejection Sampling Mode (`xof_len_i == 0`):** The FSM enters an infinite squeeze loop. It will never assert `m_axis_tlast_o`. It simply squeezes a block, waits for the downstream AXI Slave to consume it, and generates the next block. This allows the host processor to perform rejection sampling. The FSM only escapes this loop and returns to IDLE when the host manually asserts the `abort_i` control signal.
+* **Continuous / Rejection Sampling Mode (`xof_len_i == 0`):** The FSM enters an infinite squeeze loop. It squeezes a block, waits for the downstream AXI Slave to consume it, and generates the next block via intermediate permutations. This allows the host processor to perform rejection sampling. When the host manually asserts the `abort_i` control signal, the FSM asserts `m_axis_tlast_o` on the final output beat to properly terminate the AXI Stream packet before returning to IDLE.
 
 ---
 
