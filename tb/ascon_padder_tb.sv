@@ -26,6 +26,8 @@ module ascon_padder_tb;
     logic        padded_tlast_o;
     logic        padded_tvalid_o;
     logic        padded_tready_i;
+    logic [7:0]  padded_tkeep_raw_o;
+    logic        padded_is_padding_o;
 
     ascon_padder dut (.*);
 
@@ -233,7 +235,63 @@ module ascon_padder_tb;
         test_id++;
 
         // =====================================================================
-        // Test 6: Random regression — 500 iterations across all 4 scenarios
+        // Test 6: AEAD sideband check (partial block)
+        // =====================================================================
+        apply_reset(); mode_i = MODE_AEAD_ENC;
+        rand_d = rand_word();
+        fork
+            send_beat(rand_d, 8'h0F, TUSER_PT, 1);
+            begin
+                do @(posedge clk); while (!(padded_tvalid_o && padded_tready_i));
+                if (padded_tkeep_raw_o !== 8'h0F || padded_is_padding_o !== 1'b0) begin
+                    $display("\n[FAIL] test_id=%0d (AEAD Sideband partial)", test_id);
+                    $display("  RAW_KEEP | EXP: %h | DUT: %h", 8'h0F, padded_tkeep_raw_o);
+                    $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b0, padded_is_padding_o);
+                    $finish;
+                end
+                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+
+                // Collect word 1
+                collect_beat(out_data, out_keep, out_last);
+            end
+        join
+        $display("Test 6: AEAD Sideband Check (Partial Block) PASSED.");
+        test_id++;
+
+        // =====================================================================
+        // Test 7: AEAD sideband check (rollover padding)
+        // =====================================================================
+        apply_reset(); mode_i = MODE_AEAD_ENC;
+        rand_d = rand_word();
+        fork
+            send_beat(rand_d, 8'hFF, TUSER_PT, 1);
+            begin
+                // Beat 1: Full payload
+                do @(posedge clk); while (!(padded_tvalid_o && padded_tready_i));
+                if (padded_tkeep_raw_o !== 8'hFF || padded_is_padding_o !== 1'b0) begin
+                    $display("\n[FAIL] test_id=%0d (AEAD Sideband rollover beat0)", test_id);
+                    $display("  RAW_KEEP | EXP: %h | DUT: %h", 8'hFF, padded_tkeep_raw_o);
+                    $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b0, padded_is_padding_o);
+                    $finish;
+                end
+                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+
+                // Beat 2: Pure padding block (word0)
+                do @(posedge clk); while (!(padded_tvalid_o && padded_tready_i));
+                if (padded_tkeep_raw_o !== 8'h00 || padded_is_padding_o !== 1'b1) begin
+                    $display("\n[FAIL] test_id=%0d (AEAD Sideband rollover beat1)", test_id);
+                    $display("  RAW_KEEP | EXP: %h | DUT: %h", 8'h00, padded_tkeep_raw_o);
+                    $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b1, padded_is_padding_o);
+                    $finish;
+                end
+                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+            end
+        join
+        $display("Test 7: AEAD Sideband Check (Rollover Block) PASSED.");
+        test_id++;
+
+        // =====================================================================
+        // Test 8: Random regression — 500 iterations across all 4 scenarios
         // =====================================================================
         $display("Starting %0d Random Regressions...", num_random_tests);
         for (int t = 0; t < num_random_tests; t++) begin
