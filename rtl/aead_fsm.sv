@@ -78,9 +78,11 @@ module aead_fsm(
     // Padded AXI STREAM from padder unit
     input ascon_word_t          padded_tdata_i,  // Pre-processed
     input logic [7:0]           padded_tkeep_i,  // Pass - through for CT
+    input logic [7:0]           padded_tkeep_raw_i, // Raw pass-through for exact Payload tracking
     input axi_tuser_t           padded_tuser_i,  // User type
     input logic                 padded_tlast_i,  // last word in the message
     input logic                 padded_tvalid_i, // valid
+    input logic                 padded_is_padding_i, // High when emitting artificial carry blocks
     output logic                padded_tready_o,
 
     // Plaintext / Ciphertext - AX4 stream from padder unit
@@ -106,19 +108,21 @@ module aead_fsm(
         ST_AD       = 4'd3,
         ST_PT_IN    = 4'd4,
         ST_CT_IN    = 4'd5,
-        ST_TAG_INIT = 4'd6,
-        ST_ENC_TAG  = 4'd7,
-        ST_DEC_TAG  = 4'd8,
-        ST_VERIFY   = 4'd9,
-        ST_DONE     = 4'd10
-        //ST_ERROR    = 4'd11
+        ST_CT_PAD_0 = 4'd6, // Inject 0x80 into word 1 when CT ends on word 0 boundary
+        ST_TAG_INIT = 4'd7,
+        ST_ENC_TAG  = 4'd8,
+        ST_DEC_TAG  = 4'd9,
+        ST_VERIFY   = 4'd10,
+        ST_DONE     = 4'd11
+        //ST_ERROR    = 4'd12
     } state_t;
 
-    typedef enum logic [1:0] {
-        CTX_INIT  = 2'd0, // 12 round permutation after initialization loading
-        CTX_AD    = 2'd1, // 8 round permutation after each AD BLock
-        CTX_DATA  = 2'd2, // 8 round permutation after each non-final PT/Ct block
-        CTX_FINAL = 2'd3  // 8 round permutation during finalization
+    typedef enum logic [2:0] {
+        CTX_INIT   = 3'd0, // 12 round permutation after initialization loading
+        CTX_AD     = 3'd1, // 8 round permutation after each AD Block
+        CTX_DATA   = 3'd2, // 8 round permutation after each non-final PT/Ct block
+        CTX_CT_PAD = 3'd3, // 8 round permutation when CT ends on word 1 boundary
+        CTX_FINAL  = 3'd4  // 8 round permutation during finalization
     } perm_ctx_t;
 
     //==========================================================================
@@ -163,7 +167,47 @@ module aead_fsm(
     logic tag_ok_r;
 
     //==========================================================================
-    // Combinational Helpers
+    // Helper Functions
+    //==========================================================================
+
+    // Generates a 64-bit mask from an 8-bit LE TKEEP.
+    // E.g., if TKEEP = 8'h0F (lower 4 bytes valid), it produces 64'hFFFFFFFF_00000000.
+    // because TKEEP bit 0 (AXI byte 0) maps to BE byte 7 (bits 63:56).
+    function automatic logic [63:0] tkeep_to_mask(input logic [7:0] tkeep);
+        logic [63:0] mask;
+        mask[63:56] = tkeep[0] ? 8'hFF : 8'h00;
+        mask[55:48] = tkeep[1] ? 8'hFF : 8'h00;
+        mask[47:40] = tkeep[2] ? 8'hFF : 8'h00;
+        mask[39:32] = tkeep[3] ? 8'hFF : 8'h00;
+        mask[31:24] = tkeep[4] ? 8'hFF : 8'h00;
+        mask[23:16] = tkeep[5] ? 8'hFF : 8'h00;
+        mask[15:8]  = tkeep[6] ? 8'hFF : 8'h00;
+        mask[7:0]   = tkeep[7] ? 8'hFF : 8'h00;
+        return mask;
+    endfunction
+
+    // Finds the bit index of the 0x80 padding byte to inject.
+    // E.g., if TKEEP = 8'h0F, the first invalid byte is AXI byte 4.
+    // AXI byte 4 maps to BE byte 3 (bits 31:24). The MSB is bit 31.
+    function automatic logic [63:0] get_padding_bit(input logic [7:0] tkeep);
+        logic [63:0] pad;
+        pad = 64'h0;
+        casex (tkeep)
+            8'bxxxx_xxx0: pad[63] = 1'b1;
+            8'bxxxx_xx01: pad[55] = 1'b1;
+            8'bxxxx_x011: pad[47] = 1'b1;
+            8'bxxxx_0111: pad[39] = 1'b1;
+            8'bxxx0_1111: pad[31] = 1'b1;
+            8'bxx01_1111: pad[23] = 1'b1;
+            8'bx011_1111: pad[15] = 1'b1;
+            8'b0111_1111: pad[7]  = 1'b1;
+            default:      pad = 64'h0;
+        endcase
+        return pad;
+    endfunction
+
+    //==========================================================================
+    // Constants & Types
     //==========================================================================
 
     logic is_enc;
@@ -198,7 +242,8 @@ module aead_fsm(
     logic needs_post_perm;
     assign needs_post_perm =    (perm_ctx_r == CTX_INIT)  ||
                                 (perm_ctx_r == CTX_FINAL)  ||
-                                (perm_ctx_r == CTX_AD && ad_last_seen_r);
+                                (perm_ctx_r == CTX_AD && ad_last_seen_r) ||
+                                (perm_ctx_r == CTX_CT_PAD);
 
 
     //==========================================================================
@@ -208,7 +253,10 @@ module aead_fsm(
     state_t next_state;
     always_ff @(posedge clk or posedge rst) begin
         if(rst) state_r <= ST_IDLE;
-        else state_r <=  next_state;
+        else begin
+            state_r <= next_state;
+            // if (next_state != state_r) $display("Time %0t: FSM State = %0d, ctx = %0d, pad_valid = %b, pad_last = %b, pad_is_pad = %b", $time, next_state, perm_ctx_r, padded_tvalid_i, padded_tlast_i, padded_is_padding_i);
+        end
     end
 
     //==========================================================================
@@ -225,10 +273,10 @@ module aead_fsm(
     assign ad_word_valid = (state_r == ST_AD && padded_tvalid_i && padded_tuser_i == TUSER_AD && padded_tready_o);
 
     logic pt_word_valid;
-    assign pt_word_valid = (state_r == ST_PT_IN && padded_tvalid_i && m_axis_tready_i);
+    assign pt_word_valid = (state_r == ST_PT_IN && padded_tvalid_i && padded_tready_o);
 
     logic ct_word_valid;
-    assign ct_word_valid = (state_r == ST_CT_IN && padded_tvalid_i && m_axis_tready_i);
+    assign ct_word_valid = (state_r == ST_CT_IN && padded_tvalid_i && padded_tready_o);
 
     always_comb begin
         next_state = state_r;
@@ -258,6 +306,7 @@ module aead_fsm(
                         CTX_INIT : next_state = ST_AD;
                         CTX_AD   : next_state = ad_last_seen_r ? (is_enc ? ST_PT_IN : ST_CT_IN) : ST_AD;
                         CTX_DATA : next_state = is_enc ? ST_PT_IN : ST_CT_IN;
+                        CTX_CT_PAD: next_state = ST_TAG_INIT;
                         CTX_FINAL: next_state = is_enc ? ST_ENC_TAG : ST_DEC_TAG;
                         default  : next_state = ST_DONE;
                     endcase
@@ -293,13 +342,27 @@ module aead_fsm(
             //==============================================================================
             // CT_IN: Decrypt payload; final word goes to finalization setup.
             ST_CT_IN: begin
-                if (ct_word_valid) begin
-                    if (padded_tlast_i) next_state = ST_TAG_INIT;
+                if (padded_tvalid_i && m_axis_tready_i) begin
+                    if (padded_tlast_i) begin
+                        if (padded_tkeep_raw_i == 8'hFF) begin
+                            // Full word, padding spills into next word/block
+                            if (dat_word_r == 1'b1) next_state = ST_PERM;
+                            else next_state = ST_CT_PAD_0;
+                        end else begin
+                            // Partial word, padding injected in current word
+                            next_state = ST_TAG_INIT;
+                        end
+                    end
                     else if (dat_word_r == 1'b1) next_state = ST_PERM;
                     else next_state = ST_CT_IN;
                 end else begin
                     next_state = ST_CT_IN;
                 end
+            end
+
+            // CT_PAD_0: Inject 0x80 into S1 when CT ends on a full word 0.
+            ST_CT_PAD_0: begin
+                next_state = ST_TAG_INIT;
             end
 
             //==============================================================================
@@ -459,6 +522,11 @@ module aead_fsm(
                             word_sel_o = 3'd4;
                             data_o     = DSEP;
                         end
+                        CTX_CT_PAD: begin
+                            // Padding byte: 0x80 XOR into S0 MSB
+                            word_sel_o = 3'd0;
+                            data_o     = 64'h80000000_00000000;
+                        end
                         default: ;
                     endcase
                 end
@@ -487,15 +555,20 @@ module aead_fsm(
 
             // PT_IN: XOR PT into state, simultaneously output CT.
             ST_PT_IN: begin
-                padded_tready_o = m_axis_tready_i;
-                if (padded_tvalid_i && m_axis_tready_i) begin
+                // In ST_PT_IN, if it's a synthetic padding block (padded_is_padding_i == 1),
+                // we absorb it into the state but DO NOT output it (CT length == PT length).
+                // Wait, if m_axis_tready_i is 0, we can still write the state?
+                // No, we must obey AXI flow control. If we aren't outputting, we don't strictly need m_axis_tready_i.
+                // But it's safer to just condition m_axis_tvalid_o.
+                padded_tready_o = padded_is_padding_i ? 1'b1 : m_axis_tready_i;
+                if (padded_tvalid_i && padded_tready_o) begin
                     write_en_o      = 1'b1;
                     xor_en_o        = 1'b1;
                     in_data_sel_o   = DATA_IN_AXI_SEL;
                     word_sel_o      = {2'b00, dat_word_r};
                     m_axis_tdata_o  = core_data_i ^ padded_tdata_i;
-                    m_axis_tvalid_o = 1'b1;
-                    m_axis_tkeep_o  = padded_tkeep_i;
+                    m_axis_tvalid_o = ~padded_is_padding_i;
+                    m_axis_tkeep_o  = padded_tkeep_raw_i; // Output raw TKEEP, not the overwritten FF
                     m_axis_tuser_o  = TUSER_CT;
                     m_axis_tlast_o  = padded_tlast_i;
                 end
@@ -506,13 +579,22 @@ module aead_fsm(
             ST_CT_IN: begin
                 padded_tready_o = m_axis_tready_i;
                 if (padded_tvalid_i && m_axis_tready_i) begin
+                    logic [63:0] ct_mask;
+                    logic [63:0] pad_bit;
+                    ct_mask = tkeep_to_mask(padded_tkeep_raw_i);
+                    pad_bit = get_padding_bit(padded_tkeep_raw_i);
+
                     write_en_o      = 1'b1;
-                    xor_en_o        = 1'b0;
-                    in_data_sel_o   = DATA_IN_AXI_SEL;
+                    xor_en_o        = 1'b0; // We use direct overwrite because we manually compute the mixed value
+                    in_data_sel_o   = DATA_IN_AEAD_SEL;
                     word_sel_o      = {2'b00, dat_word_r};
+
+                    // State update: Valid bytes take CT. Invalid bytes keep State ^ 0x80 (padding).
+                    data_o          = (padded_tdata_i & ct_mask) | ((core_data_i ^ pad_bit) & ~ct_mask);
+
                     m_axis_tdata_o  = core_data_i ^ padded_tdata_i;
                     m_axis_tvalid_o = 1'b1;
-                    m_axis_tkeep_o  = padded_tkeep_i;
+                    m_axis_tkeep_o  = padded_tkeep_raw_i;
                     m_axis_tuser_o  = TUSER_PT;
                     m_axis_tlast_o  = padded_tlast_i;
                 end
@@ -689,6 +771,9 @@ module aead_fsm(
                         if (padded_tlast_i) begin
                             dat_last_seen_r <= 1'b1;
                             dat_word_r      <= 1'b0;
+                            if (padded_tkeep_raw_i == 8'hFF && dat_word_r == 1'b1) begin
+                                perm_ctx_r <= CTX_CT_PAD;
+                            end
                         end else if (dat_word_r == 1'b1) begin
                             perm_ctx_r <= CTX_DATA;
                             dat_word_r <= 1'b0;

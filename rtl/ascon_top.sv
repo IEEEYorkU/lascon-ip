@@ -140,6 +140,8 @@ module ascon_top (
     axi_tuser_t     padded_tuser;
     logic           padded_tlast;
     logic           padded_tvalid;
+    logic           padded_is_padding;
+    logic [7:0]     padded_tkeep_raw;
     logic           padded_tready; // Driven by the Arbiter Mux, read by the Padder
 
     // --- AEAD FSM Intermediate Outputs ---
@@ -196,6 +198,8 @@ module ascon_top (
         .padded_tuser_o     (padded_tuser),
         .padded_tlast_o     (padded_tlast),
         .padded_tvalid_o    (padded_tvalid),
+        .padded_is_padding_o(padded_is_padding),
+        .padded_tkeep_raw_o (padded_tkeep_raw),
         .padded_tready_i    (padded_tready)  // Driven by the active FSM via the Arbiter
     );
 
@@ -272,6 +276,8 @@ module ascon_top (
         .padded_tuser_i  (padded_tuser),     // Direct from padder
         .padded_tlast_i  (padded_tlast),     // Direct from padder
         .padded_tvalid_i (padded_tvalid),    // Direct from padder
+        .padded_is_padding_i(padded_is_padding), // Direct from padder
+        .padded_tkeep_raw_i (padded_tkeep_raw),  // Direct from padder
         .padded_tready_o (aead_s_axis_tready), // Intermediate wire for muxing
 
         // --- AXI4-Stream Master (Data going OUT) ---
