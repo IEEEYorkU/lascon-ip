@@ -1,17 +1,17 @@
 /*
- * Module Name: ascon_padder_tb
+ * Module Name: lascon_padder_tb
  * Author(s):   Kiet Le, Tirth Patel, Kevin Duong
- * Description: Testbench for ascon_padder.sv
+ * Description: Testbench for lascon_padder.sv
  * Ref: NIST SP 800-232
  */
 `timescale 1ns/1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 
-module ascon_padder_tb;
+module lascon_padder_tb;
 
     // DUT signals
     logic        clk, rst;
-    ascon_mode_t mode_i;
+    lascon_mode_t mode_i;
 
     ascon_word_t s_axis_tdata_i;
     logic [7:0]  s_axis_tkeep_i;
@@ -29,7 +29,7 @@ module ascon_padder_tb;
     logic [7:0]  padded_tkeep_raw_o;
     logic        padded_is_padding_o;
 
-    ascon_padder dut (.*);
+    lascon_padder dut (.*);
 
     // Clock
     initial clk = 0;
@@ -78,6 +78,7 @@ module ascon_padder_tb;
         return {$urandom(), $urandom()};
     endfunction
 
+    // Generates a random partial keep mask
     function automatic logic [7:0] rand_partial_keep();
         int n;
         n = $urandom_range(1, 7); // 1–7 valid bytes, never full 0xFF
@@ -128,13 +129,13 @@ module ascon_padder_tb;
     // MAIN
     // =========================================================================
     initial begin
-        $dumpfile("ascon_padder_tb.vcd");
-        $dumpvars(0, ascon_padder_tb);
+        $dumpfile("lascon_padder_tb.vcd");
+        $dumpvars(0, lascon_padder_tb);
 
         test_id          = 0;
         num_random_tests = 500;
 
-        $display("Starting Ascon Padder Testbench");
+        $display("Starting Lascon Padder Testbench");
 
         // =====================================================================
         // Test 1: GROUP A pass-through (KEY) — Expected swapped data

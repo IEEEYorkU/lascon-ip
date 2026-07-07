@@ -1,7 +1,7 @@
 # AEAD FSM Control Design Strategy
 
 ### 1. Overview and Purpose
-The `aead_fsm` is the protocol orchestrator (or "The Brain") for the Ascon-AEAD128 Authenticated Encryption and Decryption accelerator.
+The `aead_fsm` is the protocol orchestrator (or "The Brain") for the Lascon-AEAD128 Authenticated Encryption and Decryption accelerator.
 
 This module implements Algorithm 3 (Authenticated Encryption) and Algorithm 4 (Authenticated Decryption) as defined in NIST SP 800-232. It is responsible for coordinating all cryptographic phases in the AEAD lifecycle, from initialization and processing associated data (AD), through plaintext/ciphertext encryption, to final tag generation and verification.
 
@@ -10,8 +10,8 @@ This module implements Algorithm 3 (Authenticated Encryption) and Algorithm 4 (A
 ### 2. Architectural Fit: Pure Protocol Sequencer
 In keeping with the "Decoupled Data/Control" philosophy of the accelerator, this FSM is designed as a stateless control-path orchestrator.
 
-* **Zero Mathematical Knowledge:** The FSM possesses no knowledge of the mathematical internals of the Ascon permutation. It relies entirely on the `ascon_core` module to execute the permutation rounds.
-* **Delegated Formatting:** It communicates with the outside world exclusively through the AXI4-Stream protocol via the `ascon_padder`. All byte-level padding and rate-alignment concerns are fully delegated to the padder, allowing this FSM to operate purely and efficiently at the 64-bit block level.
+* **Zero Mathematical Knowledge:** The FSM possesses no knowledge of the mathematical internals of the Ascon permutation. It relies entirely on the `lascon_core` module to execute the permutation rounds.
+* **Delegated Formatting:** It communicates with the outside world exclusively through the AXI4-Stream protocol via the `lascon_padder`. All byte-level padding and rate-alignment concerns are fully delegated to the padder, allowing this FSM to operate purely and efficiently at the 64-bit block level.
 
 ---
 

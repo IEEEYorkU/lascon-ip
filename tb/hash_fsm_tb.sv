@@ -7,7 +7,7 @@
  * ============================================================================= */
 
 `timescale 1ns / 1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module hash_fsm_tb;
 
@@ -17,14 +17,14 @@ module hash_fsm_tb;
     logic           clk;
     logic           rst;
 
-    ascon_mode_t    mode_i;
+    lascon_mode_t   mode_i;
     logic [31:0]    xof_len_i;
     logic           start_i;
     logic           abort_i;
     logic           busy_o;
     logic           done_o;
 
-    logic           ascon_ready_i;
+    logic           lascon_ready_i;
     logic           start_perm_o;
     logic           round_config_o;
     logic [2:0]     word_sel_o;
@@ -44,7 +44,33 @@ module hash_fsm_tb;
     logic           m_axis_tvalid_o;
     logic           m_axis_tready_i;
 
-    hash_fsm dut (.*);
+    hash_fsm dut (
+        .clk                    (clk),
+        .rst                    (rst),
+        .mode_i                 (mode_i),
+        .xof_len_i              (xof_len_i),
+        .start_i                (start_i),
+        .abort_i                (abort_i),
+        .busy_o                 (busy_o),
+        .done_o                 (done_o),
+        .lascon_ready_i         (lascon_ready_i),
+        .start_perm_o           (start_perm_o),
+        .round_config_o         (round_config_o),
+        .word_sel_o             (word_sel_o),
+        .data_o                 (data_o),
+        .write_en_o             (write_en_o),
+        .core_in_data_sel_o     (core_in_data_sel_o),
+        .xor_sel_o              (xor_sel_o),
+        .padded_tuser_i         (padded_tuser_i),
+        .padded_tlast_i         (padded_tlast_i),
+        .padded_tvalid_i        (padded_tvalid_i),
+        .padded_tready_o        (padded_tready_o),
+        .m_axis_tkeep_o         (m_axis_tkeep_o),
+        .m_axis_tuser_o         (m_axis_tuser_o),
+        .m_axis_tlast_o         (m_axis_tlast_o),
+        .m_axis_tvalid_o        (m_axis_tvalid_o),
+        .m_axis_tready_i        (m_axis_tready_i)
+    );
 
     // =======================================================================
     // Phase 1: The "Mock" Environment
@@ -56,14 +82,14 @@ module hash_fsm_tb;
 
     // 2. The Mock Ascon Core (Delay Simulator)
     initial begin
-        ascon_ready_i = 1'b1;
+        lascon_ready_i = 1'b1;
         forever begin
             @(posedge clk);
             if (start_perm_o) begin
-                #1 ascon_ready_i = 1'b0; // Core goes busy
+                #1 lascon_ready_i = 1'b0; // Core goes busy
                 // Simulate 12 clock cycles of permutation math
                 repeat(12) @(posedge clk);
-                #1 ascon_ready_i = 1'b1; // Core is done
+                #1 lascon_ready_i = 1'b1; // Core is done
             end
         end
     end
@@ -126,7 +152,7 @@ module hash_fsm_tb;
             end
 
             // 2. The Handshake Collision Monitor
-            if (start_perm_o && !ascon_ready_i) begin
+            if (start_perm_o && !lascon_ready_i) begin
                 $fatal(1, "[HANDSHAKE ERROR] FSM pulsed start_perm_o while core was already busy!");
             end
         end
@@ -140,7 +166,7 @@ module hash_fsm_tb;
         $dumpvars(0, hash_fsm_tb);
 
         $display("\n==================================================");
-        $display("   Starting Ascon Hash FSM Verification");
+        $display("   Starting Lascon Hash FSM Verification");
         $display("==================================================\n");
 
         // -------------------------------------------------------------------

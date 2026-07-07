@@ -1,14 +1,14 @@
 /* =============================================================================
- * Module Name: ascon_padder
+ * Module Name: lascon_padder
  * Author(s):   Kiet Le, Tirth Patel, Kevin Duong
  * Description:
- * AXI4-Stream pre-processor and framer for the Ascon Hardware Accelerator.
+ * AXI4-Stream pre-processor and framer for the Lascon Hardware Accelerator.
  *
  * Key Responsibilities:
  * 1. Endian Swap: Converts external Little-Endian AXI data to internal Big-Endian.
  * 2. Padding Injection: Appends Ascon's '10...0' pad to partial words (AD, PT, MSG, Z).
  * 3. Rate Alignment: Manages 64-bit (Hash) vs 128-bit (AEAD) block boundaries,
- * automatically generating zero-padded filler words when needed.
+ *    automatically generating zero-padded filler words when needed.
  * 4. Pass-Through & Sidebands: Leaves unpadded streams (KEY, NONCE, CT) untouched
  *    to allow downstream FSMs to process fractional bytes directly. Provides raw
  *    stream byte-enables (padded_tkeep_raw_o) and padding indicator flags
@@ -17,14 +17,14 @@
 
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
-module ascon_padder (
+module lascon_padder (
     input  logic          clk,
     input  logic          rst,
 
     // Configuration
-    input  ascon_mode_t   mode_i,
+    input  lascon_mode_t  mode_i,
 
     // Raw AXI4-Stream Slave (Data FROM Outside World - LITTLE ENDIAN)
     input  ascon_word_t   s_axis_tdata_i,
@@ -256,7 +256,7 @@ module ascon_padder (
         // is generally illegal, but we allow it specifically on TLAST=1
         // to signal the end of a (possibly empty) message.
         !(s_axis_tvalid_i && s_axis_tkeep_i == 8'h00 && !s_axis_tlast_i)
-    ) else $error("ascon_padder: Detected middle-of-stream TVALID with TKEEP=0. This is semantically invalid.");
+    ) else $error("lascon_padder: Detected middle-of-stream TVALID with TKEEP=0. This is semantically invalid.");
     // pragma translate_on
 
 endmodule

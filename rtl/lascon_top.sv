@@ -1,8 +1,8 @@
 /*
- * Module Name: ascon_top
+ * Module Name: lascon_top
  * Author(s): Kiet Le
  * Description:
- * Top-level wrapper and routing arbiter for the Ascon Cryptographic
+ * Top-level wrapper and routing arbiter for the Lascon Cryptographic
  * Hardware Accelerator, supporting AEAD128, Hash256, XOF128, and CXOF128.
  *
  * Architecture Overview:
@@ -10,7 +10,7 @@
  * the cryptographic mathematics and bit-level formatting from the protocol-specific
  * state machines:
  *
- * 1. The "Pure" Ascon Core (The Muscle): A centralized, protocol-agnostic
+ * 1. The "Pure" Lascon Core (The Muscle): A centralized, protocol-agnostic
  * module that solely maintains the 320-bit state and executes the
  * mathematical permutation rounds (p_C, p_S, p_L). It possesses no
  * knowledge of encryption, hashing rules, or padding.
@@ -51,9 +51,9 @@
 
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
-module ascon_top (
+module lascon_top (
     // -----------------------------------------------------------------------
     // Global Clock and Reset
     // -----------------------------------------------------------------------
@@ -63,7 +63,7 @@ module ascon_top (
     // -----------------------------------------------------------------------
     // Basic Control & Status Interface
     // -----------------------------------------------------------------------
-    input  ascon_mode_t                         mode_i,     // Operating mode selection (00: AEAD128, 01: Hash256, 10: XOF128, 11: CXOF128)
+    input  lascon_mode_t                        mode_i,     // Operating mode selection (00: AEAD128, 01: Hash256, 10: XOF128, 11: CXOF128)
     input  logic [31:0]                         xof_len_i,  // 0 = Infinite/Continuous Mode, else specific byte length
     input  logic                                start_i,    // Pulse high to begin
     input  logic                                abort_i,    // Pulse high to terminate continuous squeezing
@@ -95,7 +95,7 @@ module ascon_top (
     // Logic Instantiations
     // =========================================================================
 
-    // --- Ascon Core Signals ---
+    // --- Lascon Core Signals ---
     logic           core_start_perm_i;
     logic           core_round_config_i;
     logic   [2:0]   core_word_sel_i;
@@ -179,7 +179,7 @@ module ascon_top (
     // when `s_axis_tlast` goes high.
 
     // --- AXI4-Stream Pre-processor (Padder) ---
-    ascon_padder u_padder (
+    lascon_padder u_padder (
         .clk            (clk),
         .rst            (rst),
         .mode_i         (mode_i),
@@ -259,8 +259,8 @@ module ascon_top (
         .done_o          (aead_done),         // Intermediate wire for muxing
         .tag_fail_o      (aead_tag_fail),     // Intermediate wire for muxing
 
-        // Ascon Control I/O
-        .ascon_ready_i   (core_ready_o),
+        // Core Control I/O
+        .lascon_ready_i  (core_ready_o),
         .start_perm_o    (aead_start_perm),
         .round_config_o  (aead_round_config),
         .word_sel_o      (aead_word_sel),
@@ -303,8 +303,8 @@ module ascon_top (
         .done_o                 (hash_done),         // Intermediate wire for muxing
         // Note: No tag_fail_o needed for Hash/XOF operations
 
-        // Ascon Control I/O
-        .ascon_ready_i          (core_ready_o),
+        // Core Control I/O
+        .lascon_ready_i         (core_ready_o),
         .start_perm_o           (hash_start_perm),
         .round_config_o         (hash_round_config),
         .word_sel_o             (hash_word_sel),
@@ -343,8 +343,8 @@ module ascon_top (
         endcase
     end
 
-    // --- Ascon Core ---
-    ascon_core u_core (
+    // --- Lascon Core ---
+    lascon_core u_core (
         .clk            (clk),
         .rst            (rst),
         .start_perm_i   (core_start_perm_i),

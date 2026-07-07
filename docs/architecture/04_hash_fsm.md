@@ -1,14 +1,14 @@
 # HASH FSM Control Design Strategy
 
 ### 1. Overview and Purpose
-The `hash_fsm` (Hash Finite State Machine) is a dedicated control-path orchestrator for the Ascon cryptographic accelerator. It natively supports **Ascon-Hash256**, **Ascon-XOF128**, and **Ascon-CXOF128**.
+The `hash_fsm` (Hash Finite State Machine) is a dedicated control-path orchestrator for the Lascon cryptographic accelerator. It natively supports **Ascon-Hash256**, **Ascon-XOF128**, and **Ascon-CXOF128**.
 
-Its primary purpose is to manage the AXI4-Stream protocol handshaking, track the sponge construction phases (Initialization, Absorbing, and Squeezing), and issue precise cycle-by-cycle control signals to the centralized `ascon_core` and top-level datapath multiplexers.
+Its primary purpose is to manage the AXI4-Stream protocol handshaking, track the sponge construction phases (Initialization, Absorbing, and Squeezing), and issue precise cycle-by-cycle control signals to the centralized `lascon_core` and top-level datapath multiplexers.
 
 ---
 
 ### 2. Architectural Fit: The "Decoupled Data/Control" Paradigm
-In this accelerator's architecture, the `hash_fsm` operates strictly as the "Brains" for hashing operations, leaving the "Muscle" (mathematics) to the `ascon_core` and the bit-level formatting to the `ascon_padder`.
+In this accelerator's architecture, the `hash_fsm` operates strictly as the "Brains" for hashing operations, leaving the "Muscle" (mathematics) to the `lascon_core` and the bit-level formatting to the `lascon_padder`.
 
 This decoupled philosophy manifests in several key ways:
 * **Zero Padding Logic:** The FSM does not process raw byte-enables (`TKEEP`) or message data (`TDATA`). It only receives AXI-Stream handshake control signals (`padded_tvalid_i`, `padded_tlast_i`) and packet metadata (`padded_tuser_i`) from the Padder/Framer unit, while the 64-bit data stream (`padded_tdata`) is routed directly to the Core/XOR unit.
@@ -38,5 +38,5 @@ Because XOF (Extendable Output Function) algorithms can produce infinitely long 
 
 ### 4. Hardware Interfaces
 * **Phase 1 CSR (Control/Status):** Basic pulse triggers (`start_i`, `abort_i`) and status flags (`busy_o`, `done_o`).
-* **Core Control:** Direct lines to the Ascon core to set permutation rounds (`round_config_o`), select memory lanes (`word_sel_o`), and trigger permutations (`start_perm_o`).
+* **Core Control:** Direct lines to the Lascon core to set permutation rounds (`round_config_o`), select memory lanes (`word_sel_o`), and trigger permutations (`start_perm_o`).
 * **AXI4-Stream Interfaces:** Completely standard, AXI-compliant handshake signals (`tvalid`, `tready`, `tlast`, `tuser`) connecting upstream to the Padder and downstream to the system datapath.

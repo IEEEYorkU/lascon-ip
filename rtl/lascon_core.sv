@@ -1,8 +1,8 @@
 /*
- * Module Name: ascon_core
+ * Module Name: lascon_core
  * Author(s):   Kiet Le, Arthur Sabadini
  * Description:
- * The central mathematical engine ("The Muscle") for the Ascon Cryptographic
+ * The central mathematical engine ("The Muscle") for the Lascon Cryptographic
  * Accelerator. This module encapsulates the 320-bit Ascon state and iteratively
  * executes the three permutation layers (Constant Addition, Substitution, and
  * Linear Diffusion) for a configurable number of rounds.
@@ -32,9 +32,9 @@
  */
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
-module ascon_core (
+module lascon_core (
     input   logic           clk,
     input   logic           rst,
 
@@ -62,7 +62,7 @@ module ascon_core (
         STATE_IDLE,
         STATE_PERM
     } state_t;
-    state_t state, next_state;;
+    state_t state, next_state;
 
     rnd_t rnd_cnt;
     ascon_state_t state_array;

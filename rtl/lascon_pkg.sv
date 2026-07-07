@@ -1,12 +1,12 @@
 /*
- * Package Name: ascon_pkg
- * Description: Type definitions and constants for the Ascon Hardware Accelerator
+ * Package Name: lascon_pkg
+ * Description: Type definitions and constants for the Lascon Hardware Accelerator
  * Ref: NIST SP 800-232
  */
 
 `timescale 1ns / 1ps
 
-package ascon_pkg;
+package lascon_pkg;
 
     // -------------------------------------------------------------------------
     // 1. Parameters (Constants)
@@ -51,17 +51,17 @@ package ascon_pkg;
     } axi_tuser_t;
 
     // --- Core Data In Select Enum ---
-    // Selects what data is being fed into the ascon core
+    // Selects what data is being fed into the lascon core
     typedef enum logic [2:0] {
         MODE_AEAD_ENC   = 3'b000,
         MODE_AEAD_DEC   = 3'b001,
         MODE_HASH256    = 3'b010,
         MODE_XOF        = 3'b011,
         MODE_CXOF       = 3'b100
-    } ascon_mode_t;
+    } lascon_mode_t;
 
-    // --- Ascon Core Data-In Select Enum ---
-    // Selects what data is being fed into the ascon core
+    // --- Lascon Core Data-In Select Enum ---
+    // Selects what data is being fed into the lascon core
     typedef enum logic [1:0] {
         DATA_IN_AXI_SEL    = 2'b00,
         DATA_IN_AEAD_SEL   = 2'b01,
@@ -77,4 +77,4 @@ package ascon_pkg;
         XOR_IN_AXI_SEL  = 2'b10
     } xor_sel_t;
 
-endpackage : ascon_pkg
+endpackage : lascon_pkg

@@ -50,7 +50,7 @@
  * Ref: NIST SP 800-232, Section 4
  */
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module aead_fsm(
     input logic                 clk,
@@ -60,14 +60,14 @@ module aead_fsm(
     // Mode Control
     //==========================================================================
 
-    input ascon_mode_t          mode_i,  // Mode: ENC or DEC
+    input lascon_mode_t         mode_i,  // Mode: ENC or DEC
     input logic                 start_i,
     output logic                busy_o,
     output logic                done_o,
     output logic                tag_fail_o, // Decryption tag check fails
 
     // Internal Core Interface
-    input  logic                ascon_ready_i,
+    input  logic                lascon_ready_i,
     input  ascon_word_t         core_data_i,   // Read state from core for Decryption/Tag
     output logic                start_perm_o,
     output logic                round_config_o,
@@ -217,7 +217,7 @@ module aead_fsm(
 
     // Permutation complete
     logic perm_done;
-    assign perm_done = perm_started_r && ascon_ready_i;
+    assign perm_done = perm_started_r && lascon_ready_i;
 
     // Padder handshake pulse
     logic phs;
@@ -267,7 +267,7 @@ module aead_fsm(
 
     logic init_ack;
     assign init_ack =   (state_r == ST_INIT) &&
-                        ((init_cnt_r == 3'd0 && ascon_ready_i) ||
+                        ((init_cnt_r == 3'd0 && lascon_ready_i) ||
                         ((init_cnt_r <= 3'd2) && padded_tvalid_i && padded_tuser_i == TUSER_KEY && padded_tready_o) ||
                         ((init_cnt_r >= 3'd3 && init_cnt_r <= 3'd4) && padded_tvalid_i && padded_tuser_i == TUSER_NONCE && padded_tready_o));
 
@@ -452,7 +452,7 @@ module aead_fsm(
             */
             ST_INIT: begin
                 if (init_cnt_r == 3'd0) begin
-                    write_en_o     = ascon_ready_i;
+                    write_en_o     = lascon_ready_i;
                     xor_en_o       = 1'b0;
                     in_data_sel_o  = DATA_IN_AEAD_SEL;
                     word_sel_o     = 3'd0;
@@ -691,7 +691,7 @@ module aead_fsm(
             ST_INIT: begin
                     case (init_cnt_r)
                         3'd0: begin
-                            if (ascon_ready_i) init_cnt_r <= 3'd1;
+                            if (lascon_ready_i) init_cnt_r <= 3'd1;
                         end
                         3'd1: begin
                             if (phs && padded_tuser_i == TUSER_KEY) begin

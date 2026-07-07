@@ -1,7 +1,7 @@
-# Ascon Core Design Strategy
+# Lascon Core Design Strategy
 
 ### 1. Design Philosophy: "The Dumb Slave"
-The guiding principle for this Ascon Core is **Decoupling**. We separate cryptographic mathematics from protocol logic.
+The guiding principle for this Lascon Core is **Decoupling**. We separate cryptographic mathematics from protocol logic.
 * **Core Responsibility (The "Muscle"):** The Core is strictly a "Permutation Engine" and "State Register File". It knows how to store 320 bits and how to run the mathematical permutations for a specific number of rounds. It does **not** know what "Encryption" or "Hashing" is.
 * **Controller Responsibility (The "Brain"):** All protocol-specific logic—XORing input data for absorption, extracting ciphertext, padding messages, and managing modes (AEAD vs. Hash)—is moved **out** of the Core and managed by the Controller.
 * **Solved Problem:** This architecture elegantly solves the **Decryption Conflict** (where the state update differs from the output generation) because the Controller handles the XOR logic externally, treating the Core as a simple memory unit.

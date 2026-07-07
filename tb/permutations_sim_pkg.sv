@@ -9,7 +9,7 @@
 
 package permutations_sim_pkg;
 
-    import ascon_pkg::*;
+    import lascon_pkg::*;
 
     // ----------------------------------------------------------
     // Constant Addition Layer Simulation

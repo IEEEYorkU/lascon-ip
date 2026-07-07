@@ -45,7 +45,7 @@
  * ============================================================================= */
 
 `timescale 1ns / 1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module hash_fsm (
     input  logic           clk,
@@ -54,7 +54,7 @@ module hash_fsm (
     // -----------------------------------------------------------------------
     // Hash FSM Control I/O
     // -----------------------------------------------------------------------
-    input  ascon_mode_t    mode_i,
+    input  lascon_mode_t   mode_i,
     input  logic [31:0]    xof_len_i,     // 0 = Infinite/Continuous Mode, else specific byte length
     input  logic           start_i,
     input  logic           abort_i,       // Pulse high to terminate continuous squeezing
@@ -64,7 +64,7 @@ module hash_fsm (
     // -----------------------------------------------------------------------
     // Ascon Core Control I/O
     // -----------------------------------------------------------------------
-    input  logic           ascon_ready_i,
+    input  logic           lascon_ready_i,
     output logic           start_perm_o,
     output logic           round_config_o, // e.g., 0 for p^12, 1 for p^8
     output logic [2:0]     word_sel_o,
@@ -178,7 +178,7 @@ module hash_fsm (
             end
 
             STATE_PERM_WAIT: begin
-                if (ascon_ready_i) begin
+                if (lascon_ready_i) begin
                     // Use the phase tracker to return to the correct loop
                     if (phase_reg == PHASE_ABSORB) begin
                         next_state = STATE_ABSORB;

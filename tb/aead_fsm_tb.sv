@@ -6,7 +6,7 @@
  */
 
 `timescale 1ns/1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module aead_fsm_tb;
 
@@ -15,14 +15,14 @@ module aead_fsm_tb;
     // -------------------------------------------------------------------------
     logic                 clk = 0;
     logic                 rst = 0;
-    ascon_mode_t          mode_i;
+    lascon_mode_t         mode_i;
     logic                 start_i;
     logic                 busy_o;
     logic                 done_o;
     logic                 tag_fail_o;
 
     // Core Interface
-    logic                 ascon_ready_i;
+    logic                 lascon_ready_i;
     ascon_word_t          core_data_i;
     logic                 start_perm_o;
     logic                 round_config_o;
@@ -59,7 +59,7 @@ module aead_fsm_tb;
         .busy_o          (busy_o),
         .done_o          (done_o),
         .tag_fail_o      (tag_fail_o),
-        .ascon_ready_i   (ascon_ready_i),
+        .lascon_ready_i  (lascon_ready_i),
         .core_data_i     (core_data_i),
         .start_perm_o    (start_perm_o),
         .round_config_o  (round_config_o),
@@ -90,11 +90,11 @@ module aead_fsm_tb;
     // -------------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (rst)
-            ascon_ready_i <= 1'b1;
+            lascon_ready_i <= 1'b1;
         else if (start_perm_o)
-            ascon_ready_i <= 1'b0;
+            lascon_ready_i <= 1'b0;
         else
-            ascon_ready_i <= 1'b1;
+            lascon_ready_i <= 1'b1;
     end
 
     // -------------------------------------------------------------------------

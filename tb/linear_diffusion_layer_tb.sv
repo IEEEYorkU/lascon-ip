@@ -6,7 +6,7 @@
  */
 
 `timescale 1ns/1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module linear_diffusion_layer_tb;
 

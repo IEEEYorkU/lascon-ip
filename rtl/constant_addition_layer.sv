@@ -9,7 +9,7 @@
 
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module constant_addition_layer (
     input   rnd_t           rnd_i,

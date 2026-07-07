@@ -1,16 +1,16 @@
 /*
- * Module Name: ascon_core_tb.sv
- * Aurthor(s): Arthur Sabadini, Artin Kiany, Kiet Le
- * Description: Testbench for ascon_core.sv
+ * Module Name: lascon_core_tb.sv
+ * Author(s): Arthur Sabadini, Artin Kiany, Kiet Le
+ * Description: Testbench for lascon_core.sv
  *
  */
 
 `timescale 1ns/1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 import permutations_sim_pkg::*;
 
-module ascon_core_tb;
+module lascon_core_tb;
 
     // ----------------------------
     // Input and Output Signals
@@ -52,7 +52,7 @@ module ascon_core_tb;
     // Error Tracking
     int error_count = 0;
 
-    ascon_core dut(
+    lascon_core dut(
         .clk(clk), .rst(rst),
         .start_perm_i(start_perm_i),
         .round_config_i(round_config_i),

@@ -1,17 +1,17 @@
 /* =============================================================================
- * Module Name: ascon_top_tb
+ * Module Name: lascon_top_tb
  * Author(s):   Kiet Le
  * Description:
- * End-to-end integration testbench for the Ascon Hardware Accelerator.
+ * End-to-end integration testbench for the Lascon Hardware Accelerator.
  * Dynamically compares the RTL output against the `permutations_sim_pkg`
  * software reference model and strictly asserts AXI4-Stream protocols.
  * ============================================================================= */
 
 `timescale 1ns / 1ps
-import ascon_pkg::*;
+import lascon_pkg::*;
 import permutations_sim_pkg::*;
 
-module ascon_top_tb;
+module lascon_top_tb;
 
     // =======================================================================
     // Signals & DUT Instantiation
@@ -19,7 +19,7 @@ module ascon_top_tb;
     logic           clk;
     logic           rst;
 
-    ascon_mode_t    mode_i;
+    lascon_mode_t    mode_i;
     logic [31:0]    xof_len_i;
     logic           start_i;
     logic           abort_i;
@@ -41,7 +41,7 @@ module ascon_top_tb;
     logic           m_axis_tvalid;
     logic           m_axis_tready;
 
-    ascon_top dut (.*);
+    lascon_top dut (.*);
 
     // =======================================================================
     // Clock & Simulated DMA (Backpressure)
@@ -101,7 +101,7 @@ module ascon_top_tb;
     // Unified, Dynamic Execution Task for Hash, XOF, and CXOF
     task automatic execute_hash_test(
         input string       test_name,
-        input ascon_mode_t test_mode,
+        input lascon_mode_t test_mode,
         input int          xof_len_bytes,
         input ascon_word_t exp_digest[],
         input ascon_word_t stream_data[],
@@ -250,8 +250,6 @@ module ascon_top_tb;
         // Verify Output CT
         for (int i = 0; i < target_ct_words; i++) begin
             if (swap_bytes(hw_ct[i]) !== exp_ct[i]) begin
-                // $display("\n   [DEBUG DUMP] %s (CT)", test_name);
-                // for(int j=0; j<target_ct_words; j++) $display("   Word %0d | EXP: %h | HW_SWAPPED: %h", j, exp_ct[j], swap_bytes(hw_ct[j]));
                 $fatal(1, "   [FAIL] %s: Ciphertext mismatch on Word %0d.", test_name, i);
             end
         end
@@ -259,7 +257,6 @@ module ascon_top_tb;
         // Verify Output Tag
         for (int i = 0; i < 2; i++) begin
             if (swap_bytes(hw_tag[i]) !== exp_tag[i]) begin
-                // $display("\n   [DEBUG DUMP] %s (TAG)", test_name);
                 for(int j=0; j<2; j++) $display("   Word %0d | EXP: %h | HW_SWAPPED: %h", j, exp_tag[j], swap_bytes(hw_tag[j]));
                 $fatal(1, "   [FAIL] %s: Tag mismatch on Word %0d.", test_name, i);
             end
@@ -331,12 +328,6 @@ module ascon_top_tb;
         while (!done_o) @(posedge clk);
 
         if (tag_fail_o !== expected_tag_fail) begin
-            // $display("   [DEBUG DUMP] %s", test_name);
-            // $display("   Expected Tag Fail: %b | Actual: %b", expected_tag_fail, tag_fail_o);
-            // In Decryption, the RTL compares core_data_i against rx_tag_r.
-            // But they are only valid during ST_VERIFY. Let's just print rx_tag_r which was latched.
-            // $display("   RTL Latched RX Tag: %h %h", dut.u_aead_fsm.rx_tag_r[0], dut.u_aead_fsm.rx_tag_r[1]);
-            // And we can also display the expected tag (which was passed as stream data).
             $fatal(1, "   [FAIL] %s: Tag verification mismatch. Expected %b, got %b.", test_name, expected_tag_fail, tag_fail_o);
         end
 
@@ -344,8 +335,6 @@ module ascon_top_tb;
         if (!expected_tag_fail) begin
             for (int i = 0; i < target_pt_words; i++) begin
                 if (swap_bytes(hw_pt[i]) !== exp_pt[i]) begin
-                    // $display("\n   [DEBUG DUMP] %s (PT)", test_name);
-                    // for(int j=0; j<target_pt_words; j++) $display("   Word %0d | EXP: %h | HW_SWAPPED: %h", j, exp_pt[j], swap_bytes(hw_pt[j]));
                     $fatal(1, "   [FAIL] %s: Plaintext mismatch on Word %0d.", test_name, i);
                 end
             end
@@ -362,7 +351,7 @@ module ascon_top_tb;
 
     initial begin
         $display("\n=========================================================================");
-        $display("   Ascon System Integration & Math Verification");
+        $display("   Lascon System Integration & Math Verification");
         $display("=========================================================================");
 
         $display(" \nAscon-Hash256 Tests");

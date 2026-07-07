@@ -1,14 +1,14 @@
-# Ascon Padder Design Strategy
+# Lascon Padder Design Strategy
 
 ### 1. Overview and Purpose
-The `ascon_padder` serves as a dedicated AXI4-Stream pre-processor (or "Framer") for the Ascon Cryptographic Accelerator.
+The `lascon_padder` serves as a dedicated AXI4-Stream pre-processor (or "Framer") for the Lascon Cryptographic Accelerator.
 
 Its primary purpose is to intercept raw, incoming variable-length data streams and dynamically apply the precise bit-level padding, rate-alignment, and endianness conversion rules defined in NIST SP 800-232. By handling these complex byte-level operations on the fly, the padder abstracts the formatting burden away from the downstream protocol state machines (`aead_fsm`, `hash_fsm`), allowing them to function as highly efficient, protocol-agnostic block counters.
 
 ---
 
 ### 2. Architectural Fit: Decoupling Formatting from Control
-In this accelerator's "Decoupled Data/Control" architecture, the padder sits directly behind the top-level external AXI4-Stream slave ports, acting as a crucial pipeline stage before data is routed to the Ascon core or the top-level XOR unit.
+In this accelerator's "Decoupled Data/Control" architecture, the padder sits directly behind the top-level external AXI4-Stream slave ports, acting as a crucial pipeline stage before data is routed to the Lascon core or the top-level XOR unit.
 
 * **Upstream Flow Control:** The padder directly drives `s_axis_tready_o`, giving it the authority to halt the external data source if it needs extra clock cycles to generate artificial padding words.
 * **Downstream Flow Control:** The padder monitors `padded_tready_i` (driven by the active FSM) to know when its formatted output has been successfully consumed.

@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module xor64 (
     input   ascon_word_t    op1_i,

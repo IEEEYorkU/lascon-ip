@@ -16,7 +16,7 @@ tb_main_verilator.cpp
 tb_main.make
 # The compiled executable (from iverilog -o)
 *.out
-ascon_sim
+lascon_sim
 sim.out
 
 # LibreLane & Physical Flow Outputs
@@ -30,7 +30,7 @@ librelane/*.v
 oss-cad-suite/*
 *.dot
 *.svg
-ascon.json
+lascon.json
 
 venv/
 sv2v-Linux/

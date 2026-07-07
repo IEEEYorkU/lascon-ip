@@ -8,7 +8,7 @@
 
 `timescale 1ns / 1ps
 
-import ascon_pkg::*;
+import lascon_pkg::*;
 
 module linear_diffusion_layer(
     input  ascon_state_t state_array_i,
