@@ -19,7 +19,7 @@ jobs:
       commit_sha: ${{ github.sha }}
 
       # Your comma-separated top modules for the Yosys synthesis matrix
-      top_modules: 'ascon_top'
+      top_modules: 'lascon_top'
 
       enable_synth: true
       enable_lint: true
