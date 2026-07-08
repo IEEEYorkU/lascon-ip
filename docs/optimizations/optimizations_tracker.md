@@ -10,7 +10,7 @@ This document tracks potential hardware optimization proposals for the LASCON ha
 | :--- | :---: |
 | 🟢 **Completed** | 0 |
 | 🟡 **In-Progress** | 0 |
-| 🔵 **Pending** | 9 |
+| 🔵 **Pending** | 12 |
 | 🔴 **Denied** | 3 |
 
 ---
@@ -441,3 +441,96 @@ Remove explicit sequential state value assignments (e.g., `= 4'd0, 4'd1...`) fro
 
 #### Notes & Decisions
 - **2026-07-07**: Under consideration.
+
+---
+
+### OPT-13: Serialize Linear Diffusion (Datapath)
+
+#### Status
+- [x] **Pending**
+- [ ] **In-Progress**
+- [ ] **Completed**
+- [ ] **Denied**
+
+*Last Updated: 2026-07-08*
+
+#### Description
+Instead of computing all five 64-bit word rotations concurrently in `linear_diffusion_layer.sv`, instantiate a single 64-bit diffusion block and process the state sequentially over 5 clock cycles.
+
+#### PPA (Performance, Power, Area) Impact
+- **Performance:** **High latency impact**: Each permutation round will take 5+ cycles instead of 1, severely reducing throughput.
+- **Power:** May reduce instantaneous power due to less parallel combinational logic.
+- **Area:** High reduction in area by sharing the diffusion block across 5 cycles.
+
+#### Required Changes
+- [ ] `linear_diffusion_layer`: Update to single 64-bit block and add a 5-cycle state machine / counter.
+- [ ] `lascon_core`: Adjust FSM to handle the multi-cycle diffusion step.
+
+#### Difficulty
+- **Execution Difficulty:** Medium
+- **Justification/Risks:** Will severely impact throughput. Requires core control changes to manage multi-cycle diffusion.
+
+#### Notes & Decisions
+- **2026-07-08**: Identified as an area optimization strategy. Marked as pending.
+
+---
+
+### OPT-14: Prevent RAM Inference on State (Toolchain)
+
+#### Status
+- [x] **Pending**
+- [ ] **In-Progress**
+- [ ] **Completed**
+- [ ] **Denied**
+
+*Last Updated: 2026-07-08*
+
+#### Description
+Yosys often infers bulky `$DFFRAM` or block RAMs for 2D arrays like `ascon_state_t state_array` accessed via variable index (`word_sel_i`). Flatten the array to a 320-bit vector or apply `(* ram_style = "logic" *)` to force standard cell flip-flops.
+
+#### PPA (Performance, Power, Area) Impact
+- **Performance:** None.
+- **Power:** May improve power by using standard FFs instead of RAM macros.
+- **Area:** Medium reduction by avoiding bulky RAM inference in Yosys.
+
+#### Required Changes
+- [ ] `lascon_core`: Apply synthesis directives to `state_array` or flatten it into a 320-bit vector.
+
+#### Difficulty
+- **Execution Difficulty:** Low
+- **Justification/Risks:** Synthesis directive change with no logical functional change.
+
+#### Notes & Decisions
+- **2026-07-08**: Identified as an area optimization strategy. Marked as pending.
+
+---
+
+### OPT-15: Move IV Generation to Core (Control)
+
+#### Status
+- [x] **Pending**
+- [ ] **In-Progress**
+- [ ] **Completed**
+- [ ] **Denied**
+
+*Last Updated: 2026-07-08*
+
+#### Description
+Currently, `hash_fsm.sv` routes full 64-bit IV constants (`ASCON_HASH_IV_WORD0`, etc.) through the top-level muxing to the Core. Hardcoding these constants inside `lascon_core.sv` and triggering them via a 2-bit init signal will save significant routing area and top-level muxes.
+
+#### PPA (Performance, Power, Area) Impact
+- **Performance:** None.
+- **Power:** Minor improvement due to less toggling on wide buses.
+- **Area:** Medium reduction in routing area and multiplexers at the top level.
+
+#### Required Changes
+- [ ] `lascon_core`: Move IV constants inside this module and add control signals to select them during initialization.
+- [ ] `hash_fsm`: Update to output the new control signals instead of 64-bit IV constants.
+- [ ] `lascon_top`: Update connections between FSM and Core.
+
+#### Difficulty
+- **Execution Difficulty:** Low
+- **Justification/Risks:** Simplifies top-level routing without affecting core algorithm throughput.
+
+#### Notes & Decisions
+- **2026-07-08**: Identified as an area optimization strategy. Recommended as one of the top 2 best ROI. Marked as pending.
