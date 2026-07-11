@@ -30,8 +30,7 @@ module hash_fsm_tb;
     logic [2:0]     word_sel_o;
     ascon_word_t    data_o;
     logic           write_en_o;
-    logic [1:0]     core_in_data_sel_o;
-    logic [1:0]     xor_sel_o;
+    data_sel_t      core_in_data_sel_o;
 
     axi_tuser_t     padded_tuser_i;
     logic           padded_tlast_i;
@@ -60,7 +59,6 @@ module hash_fsm_tb;
         .data_o                 (data_o),
         .write_en_o             (write_en_o),
         .core_in_data_sel_o     (core_in_data_sel_o),
-        .xor_sel_o              (xor_sel_o),
         .padded_tuser_i         (padded_tuser_i),
         .padded_tlast_i         (padded_tlast_i),
         .padded_tvalid_i        (padded_tvalid_i),

@@ -29,15 +29,16 @@ module aead_fsm_tb;
     logic [2:0]           word_sel_o;
     ascon_word_t          data_o;
     logic                 write_en_o;
-    logic                 xor_en_o;
     data_sel_t            in_data_sel_o;
 
     // Padder Interface
     ascon_word_t          padded_tdata_i;
     logic [7:0]           padded_tkeep_i;
+    logic [7:0]           padded_tkeep_raw_i = 8'hFF;
     axi_tuser_t           padded_tuser_i;
     logic                 padded_tlast_i;
     logic                 padded_tvalid_i;
+    logic                 padded_is_padding_i = 1'b0;
     logic                 padded_tready_o;
 
     // Output Stream
@@ -66,13 +67,14 @@ module aead_fsm_tb;
         .word_sel_o      (word_sel_o),
         .data_o          (data_o),
         .write_en_o      (write_en_o),
-        .xor_en_o        (xor_en_o),
         .in_data_sel_o   (in_data_sel_o),
         .padded_tdata_i  (padded_tdata_i),
         .padded_tkeep_i  (padded_tkeep_i),
+        .padded_tkeep_raw_i(padded_tkeep_raw_i),
         .padded_tuser_i  (padded_tuser_i),
         .padded_tlast_i  (padded_tlast_i),
         .padded_tvalid_i (padded_tvalid_i),
+        .padded_is_padding_i(padded_is_padding_i),
         .padded_tready_o (padded_tready_o),
         .m_axis_tdata_o  (m_axis_tdata_o),
         .m_axis_tkeep_o  (m_axis_tkeep_o),
