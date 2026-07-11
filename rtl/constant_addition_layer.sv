@@ -17,9 +17,12 @@ module constant_addition_layer (
     output  ascon_state_t   state_array_o
 );
 
+    (* keep *) logic [7:0] round_const;
+    assign round_const = {~rnd_i, rnd_i};
+
     always_comb begin
         state_array_o = state_array_i;
-        state_array_o[2][7:0] = state_array_i[2][7:0] ^ {~rnd_i, rnd_i};
+        state_array_o[2][7:0] = state_array_i[2][7:0] ^ round_const;
     end
 
 endmodule
