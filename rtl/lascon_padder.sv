@@ -129,7 +129,7 @@ module lascon_padder (
         next_state          = state;
         word_count_next     = word_count_reg;
         held_tuser_next     = held_tuser_reg;
-        pad_word2_data_next = '0;   //since just defining        pad_word2_data_next = '0;   //since just defining
+        pad_word2_data_next = pad_word2_is_80_reg;
 
         // Default Pass-Through Assignments
         s_axis_tready_o = padded_tready_i;
@@ -226,7 +226,7 @@ module lascon_padder (
                 // or a zero-filler for r=128) to complete the NIST SP 800-232 rate multiple.
                 s_axis_tready_o = 1'b0;
                 padded_tvalid_o = 1'b1;
-                padded_tdata_o  = pad_word2_is_80_reg?64'h8000_0000_0000_0000:64'h0;
+                padded_tdata_o  = {pad_word2_is_80_reg, 63'b0};
                 padded_tkeep_o  = 8'hFF;
                 padded_tkeep_raw_o = 8'h00; // Synthetic word has no real payload
                 padded_tuser_o  = held_tuser_reg;
