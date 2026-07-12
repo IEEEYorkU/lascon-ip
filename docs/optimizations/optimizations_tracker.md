@@ -599,6 +599,9 @@ In `aead_fsm.sv`, there are multiple discrete counters used for entirely differe
 
 #### Notes & Decisions
 - **2026-07-08**: Proposed as an easy area reduction. Marked as pending.
+- **2026-07-12**: Implemented. Post-synthesis analysis shows a classic Logic vs. Register tradeoff:
+  - **ASIC (CMOS2)**: Area decreased by 135 GEs. Trading 8 flip-flops for combinatorial multiplexing logic resulted in an overall area shrink, since FFs are physically large in standard cell design.
+  - **FPGA (Xilinx 7-Series)**: LUT usage increased by 177 LUTs. FPGAs bundle LUTs and FFs in slices; saving FFs doesn't save area if the added routing/multiplexer logic consumes more LUTs. The design is smaller for ASIC, but slightly larger for FPGA.
 
 ---
 
