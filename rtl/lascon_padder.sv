@@ -36,7 +36,6 @@ module lascon_padder (
 
     // --- AXI4-Stream Master (Data going OUT) ---
     output ascon_word_t         padded_tdata_o,
-    output logic [7:0]          padded_tkeep_o,
     output logic [7:0]          padded_tkeep_raw_o, // Raw pass-through for exact Payload tracking
     output axi_tuser_t          padded_tuser_o,
     output logic                padded_tlast_o,
@@ -135,7 +134,6 @@ module lascon_padder (
         s_axis_tready_o = padded_tready_i;
         padded_tvalid_o = s_axis_tvalid_i;
         padded_tdata_o  = masked_data;
-        padded_tkeep_o  = s_axis_tkeep_i;
         padded_tkeep_raw_o = s_axis_tkeep_i; // Unconditionally pass the raw TKEEP
         padded_tuser_o  = s_axis_tuser_i;
         padded_tlast_o  = s_axis_tlast_i; // Defaults to transparent pass-through (CT, KEY)
@@ -145,7 +143,6 @@ module lascon_padder (
             STATE_IDLE_PASS: begin
                 if (is_padding_group) begin
                     // Downstream block-counters expect full words (no fractional TKEEP)
-                    padded_tkeep_o = 8'hFF;
 
                     // Override TLAST based on rate alignment needs.
                     // NOTE: TLAST is driven combinationally and IS NOT guarded by READY.
@@ -210,7 +207,6 @@ module lascon_padder (
                 s_axis_tready_o = 1'b0;
                 padded_tvalid_o = 1'b1;
                 padded_tdata_o  = 64'h8000_0000_0000_0000;
-                padded_tkeep_o  = 8'hFF;
                 padded_tkeep_raw_o = 8'h00; // Synthetic word has no real payload
                 padded_tuser_o  = held_tuser_reg;
                 padded_tlast_o  = 1'b0;
@@ -227,7 +223,6 @@ module lascon_padder (
                 s_axis_tready_o = 1'b0;
                 padded_tvalid_o = 1'b1;
                 padded_tdata_o  = {pad_word2_is_80_reg, 63'b0};
-                padded_tkeep_o  = 8'hFF;
                 padded_tkeep_raw_o = 8'h00; // Synthetic word has no real payload
                 padded_tuser_o  = held_tuser_reg;
                 padded_tlast_o  = 1'b1;

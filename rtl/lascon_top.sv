@@ -117,7 +117,6 @@ module lascon_top (
     // --- Padder Interconnect Wires ---
     // These carry the formatted stream from the padder to the internal logic
     ascon_word_t    padded_tdata;
-    logic [7:0]     padded_tkeep;
     axi_tuser_t     padded_tuser;
     logic           padded_tlast;
     logic           padded_tvalid;
@@ -171,7 +170,6 @@ module lascon_top (
 
         // Formatted Output to Internal Logic
         .padded_tdata_o     (padded_tdata),
-        .padded_tkeep_o     (padded_tkeep),
         .padded_tuser_o     (padded_tuser),
         .padded_tlast_o     (padded_tlast),
         .padded_tvalid_o    (padded_tvalid),
@@ -246,7 +244,6 @@ module lascon_top (
 
         // --- AXI4-Stream Slave (Data coming IN) ---
         .padded_tdata_i  (padded_tdata),     // Direct from padder
-        .padded_tkeep_i  (padded_tkeep),     // Direct from padder
         .padded_tuser_i  (padded_tuser),     // Direct from padder
         .padded_tlast_i  (padded_tlast),     // Direct from padder
         .padded_tvalid_i (padded_tvalid),    // Direct from padder

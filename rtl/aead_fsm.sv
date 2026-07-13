@@ -50,6 +50,8 @@
  * Ref: NIST SP 800-232, Section 4
  */
 
+`timescale 1ns / 1ps
+
 import lascon_pkg::*;
 
 module aead_fsm(
@@ -78,7 +80,6 @@ module aead_fsm(
 
     // Padded AXI STREAM from padder unit
     input ascon_word_t          padded_tdata_i,  // Pre-processed
-    input logic [7:0]           padded_tkeep_i,  // Pass - through for CT
     input logic [7:0]           padded_tkeep_raw_i, // Raw pass-through for exact Payload tracking
     input axi_tuser_t           padded_tuser_i,  // User type
     input logic                 padded_tlast_i,  // last word in the message

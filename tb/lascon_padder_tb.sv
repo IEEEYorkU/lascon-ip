@@ -21,7 +21,6 @@ module lascon_padder_tb;
     logic        s_axis_tready_o;
 
     ascon_word_t padded_tdata_o;
-    logic [7:0]  padded_tkeep_o;
     axi_tuser_t  padded_tuser_o;
     logic        padded_tlast_o;
     logic        padded_tvalid_o;
@@ -102,7 +101,7 @@ module lascon_padder_tb;
 
     task automatic collect_beat(output ascon_word_t data, output logic [7:0] keep, output logic tlast);
         do @(posedge clk); while (!(padded_tvalid_o && padded_tready_i));
-        data = padded_tdata_o; keep = padded_tkeep_o; tlast = padded_tlast_o; #1;
+        data = padded_tdata_o; keep = padded_tkeep_raw_o; tlast = padded_tlast_o; #1;
     endtask
 
     task automatic fail_mismatch(
@@ -171,7 +170,7 @@ module lascon_padder_tb;
             send_beat(rand_d, rand_k, TUSER_MSG, 1);
             begin
                 collect_beat(out_data, out_keep, out_last);
-                mismatch = (out_data !== exp_data) || (out_keep !== 8'hFF) || !out_last;
+                mismatch = (out_data !== exp_data) || (out_keep !== rand_k) || !out_last;
                 if (mismatch) fail_mismatch(test_id, "HASH partial", out_data, exp_data, out_keep, out_last);
             end
         join
@@ -208,7 +207,7 @@ module lascon_padder_tb;
             send_beat(rand_d, rand_k, TUSER_PT, 1);
             begin
                 collect_beat(out_data, out_keep, out_last);
-                mismatch = (out_data !== exp_data) || (out_keep !== 8'hFF) || out_last;
+                mismatch = (out_data !== exp_data) || (out_keep !== rand_k) || out_last;
                 if (mismatch) fail_mismatch(test_id, "AEAD word0", out_data, exp_data, out_keep, out_last);
                 collect_beat(out_data, out_keep, out_last);
                 mismatch = (out_data !== 64'h0) || !out_last;
@@ -250,7 +249,7 @@ module lascon_padder_tb;
                     $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b0, padded_is_padding_o);
                     $finish;
                 end
-                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+                out_data = padded_tdata_o; out_keep = padded_tkeep_raw_o; out_last = padded_tlast_o; #1;
 
                 // Collect word 1
                 collect_beat(out_data, out_keep, out_last);
@@ -275,7 +274,7 @@ module lascon_padder_tb;
                     $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b0, padded_is_padding_o);
                     $finish;
                 end
-                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+                out_data = padded_tdata_o; out_keep = padded_tkeep_raw_o; out_last = padded_tlast_o; #1;
 
                 // Beat 2: Pure padding block (word0)
                 do @(posedge clk); while (!(padded_tvalid_o && padded_tready_i));
@@ -285,7 +284,7 @@ module lascon_padder_tb;
                     $display("  IS_PAD   | EXP: %b | DUT: %b", 1'b1, padded_is_padding_o);
                     $finish;
                 end
-                out_data = padded_tdata_o; out_keep = padded_tkeep_o; out_last = padded_tlast_o; #1;
+                out_data = padded_tdata_o; out_keep = padded_tkeep_raw_o; out_last = padded_tlast_o; #1;
             end
         join
         $display("Test 7: AEAD Sideband Check (Rollover Block) PASSED.");
@@ -313,7 +312,7 @@ module lascon_padder_tb;
                     begin
                         for (int b = 0; b < num_beats; b++) collect_beat(out_data, out_keep, out_last); // Ignores full words
                         collect_beat(out_data, out_keep, out_last);
-                        mismatch = (out_data !== exp_data) || (out_keep !== 8'hFF) || !out_last;
+                        mismatch = (out_data !== exp_data) || (out_keep !== rand_k) || !out_last;
                         if (mismatch) fail_mismatch(test_id, "RAND HASH partial", out_data, exp_data, out_keep, out_last);
                     end
                 join
@@ -351,7 +350,7 @@ module lascon_padder_tb;
                     begin
                         for (int b = 0; b < num_beats; b++) collect_beat(out_data, out_keep, out_last);
                         collect_beat(out_data, out_keep, out_last);
-                        mismatch = (out_data !== exp_data) || (out_keep !== 8'hFF) || out_last;
+                        mismatch = (out_data !== exp_data) || (out_keep !== rand_k) || out_last;
                         if (mismatch) fail_mismatch(test_id, "RAND AEAD word0", out_data, exp_data, out_keep, out_last);
                         collect_beat(out_data, out_keep, out_last);
                         mismatch = (out_data !== 64'h0) || !out_last;

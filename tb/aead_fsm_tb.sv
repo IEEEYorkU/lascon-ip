@@ -33,7 +33,6 @@ module aead_fsm_tb;
 
     // Padder Interface
     ascon_word_t          padded_tdata_i;
-    logic [7:0]           padded_tkeep_i;
     logic [7:0]           padded_tkeep_raw_i = 8'hFF;
     axi_tuser_t           padded_tuser_i;
     logic                 padded_tlast_i;
@@ -69,7 +68,6 @@ module aead_fsm_tb;
         .write_en_o      (write_en_o),
         .in_data_sel_o   (in_data_sel_o),
         .padded_tdata_i  (padded_tdata_i),
-        .padded_tkeep_i  (padded_tkeep_i),
         .padded_tkeep_raw_i(padded_tkeep_raw_i),
         .padded_tuser_i  (padded_tuser_i),
         .padded_tlast_i  (padded_tlast_i),
@@ -142,8 +140,7 @@ module aead_fsm_tb;
         mode_i = MODE_AEAD_ENC;
         start_i = 0;
         core_data_i = 64'h0;
-        padded_tdata_i = 64'h0;
-        padded_tkeep_i = 8'hFF;
+        padded_tdata_i = 64'd0;
         padded_tuser_i = TUSER_RESERVED;
         padded_tlast_i = 0;
         padded_tvalid_i = 0;
