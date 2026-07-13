@@ -258,7 +258,9 @@ module hash_fsm (
                     unique case (mode_i)
                         MODE_XOF:     data_o = ASCON_XOF_IV_WORD0;
                         MODE_CXOF:    data_o = ASCON_CXOF_IV_WORD0;
-                        default:      data_o = ASCON_HASH_IV_WORD0;
+                        MODE_HASH256: data_o = ASCON_HASH_IV_WORD0;
+                        MODE_AEAD_ENC,
+                        MODE_AEAD_DEC: data_o = 64'b0;
                     endcase
                 // Initialize Core S1/S2/S3/S4 with 0
                 end else begin
