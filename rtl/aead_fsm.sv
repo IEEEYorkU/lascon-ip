@@ -584,6 +584,14 @@ module aead_fsm(
                 end
             end
 
+            // CT_PAD_0: Inject 0x80 into S1 when CT ends on word 0 boundary.
+            ST_CT_PAD_0: begin
+                write_en_o    = 1'b1;
+                in_data_sel_o = DATA_IN_XOR_AEAD_SEL;
+                word_sel_o    = 3'd1;
+                data_o        = 64'h80000000_00000000;
+            end
+
             // TAG_INIT: Pre-final-permutation key XOR.
             ST_TAG_INIT: begin
                 if (shared_cnt_r < 3'd2) begin

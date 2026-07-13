@@ -250,6 +250,7 @@ module lascon_top_tb;
         // Verify Output CT
         for (int i = 0; i < target_ct_words; i++) begin
             if (swap_bytes(hw_ct[i]) !== exp_ct[i]) begin
+                $display("   [DEBUG] Word %0d | EXP: %h | HW_SWAPPED: %h", i, exp_ct[i], swap_bytes(hw_ct[i]));
                 $fatal(1, "   [FAIL] %s: Ciphertext mismatch on Word %0d.", test_name, i);
             end
         end
@@ -888,6 +889,36 @@ module lascon_top_tb;
                     '{8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hFF, 8'hFF},
                     '{TUSER_KEY, TUSER_KEY, TUSER_NONCE, TUSER_NONCE, TUSER_CT, TUSER_CT, TUSER_TAG, TUSER_TAG},
                     '{1'b0, 1'b1, 1'b0, 1'b1, 1'b0, 1'b1, 1'b0, 1'b1}
+                );
+            end
+
+            // -------------------------------------------------------------------
+            // Ascon-AEAD128 TEST 2.5: Empty AD, Half-Block PT (Exactly 8 bytes)
+            // -------------------------------------------------------------------
+            begin
+                ascon_word_t exp_ct[] = new[1];
+                ascon_word_t exp_tag[2];
+                ascon_word_t exp_pt[] = new[1];
+
+                exp_ct[0] = 64'hfe4f09788ded5708;
+                exp_tag[0] = 64'hd8697ff3abdb7f73;
+                exp_tag[1] = 64'h75b643c88ba5cf17;
+                exp_pt[0] = 64'h0000000000000000;
+
+                execute_aead_enc_test("Ascon-AEAD128: Empty AD, Half-Block PT (Encryption)",
+                    exp_ct, exp_tag,
+                    '{64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000},
+                    '{8'hff, 8'hff, 8'hff, 8'hff, 8'hff},
+                    '{TUSER_KEY, TUSER_KEY, TUSER_NONCE, TUSER_NONCE, TUSER_PT},
+                    '{1'b0, 1'b1, 1'b0, 1'b1, 1'b1}
+                );
+
+                execute_aead_dec_test("Ascon-AEAD128: Empty AD, Half-Block PT (Decryption)",
+                    exp_pt,
+                    '{64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0857ed8d78094ffe, 64'h737fdbabf37f69d8, 64'h17cfa58bc843b675},
+                    '{8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hFF, 8'hFF},
+                    '{TUSER_KEY, TUSER_KEY, TUSER_NONCE, TUSER_NONCE, TUSER_CT, TUSER_TAG, TUSER_TAG},
+                    '{1'b0, 1'b1, 1'b0, 1'b1, 1'b1, 1'b0, 1'b1}
                 );
             end
 
