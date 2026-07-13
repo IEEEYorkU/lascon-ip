@@ -112,7 +112,8 @@ module hash_fsm (
     state_t state, next_state;
     phase_t phase_reg, next_phase;
 
-    logic [31:0] word_cnt, next_word_cnt; // Widened to 32-bit for XOF lengths
+    logic [2:0]  word_cnt, next_word_cnt;
+    logic [31:0] words_remaining_r, next_words_remaining;
     logic        abort_latch;
     logic [31:0] target_squeeze_words;
 
@@ -130,11 +131,13 @@ module hash_fsm (
         if (rst) begin
             state     <= STATE_IDLE;
             phase_reg <= PHASE_ABSORB;
-            word_cnt  <= 32'd0;
+            word_cnt  <= 3'd0;
+            words_remaining_r <= 32'd0;
         end else begin
             state     <= next_state;
             phase_reg <= next_phase;
             word_cnt  <= next_word_cnt;
+            words_remaining_r <= next_words_remaining;
 
             // Capture abort pulse and latch until the next operation or IDLE
             if (state == STATE_IDLE) begin
@@ -150,25 +153,27 @@ module hash_fsm (
     // =======================================================================
     always_comb begin
         // Default Values
-        next_state    = state;
-        next_word_cnt = word_cnt;
-        next_phase    = phase_reg;
+        next_state           = state;
+        next_word_cnt        = word_cnt;
+        next_words_remaining = words_remaining_r;
+        next_phase           = phase_reg;
 
         unique case (state)
             STATE_IDLE: begin
                 if (start_i) begin
-                    next_state    = STATE_INIT;
-                    next_phase    = PHASE_ABSORB;
-                    next_word_cnt = 32'd0;
+                    next_state           = STATE_INIT;
+                    next_phase           = PHASE_ABSORB;
+                    next_word_cnt        = 3'd0;
+                    next_words_remaining = target_squeeze_words;
                 end
             end
 
             STATE_INIT: begin
-                if (word_cnt == 32'd4) begin
-                    next_word_cnt = 32'd0;
+                if (word_cnt == 3'd4) begin
+                    next_word_cnt = 3'd0;
                     next_state    = STATE_PERM_START; // Permute the IV
                 end else begin
-                    next_word_cnt = word_cnt + 32'd1;
+                    next_word_cnt = word_cnt + 3'd1;
                 end
             end
 
@@ -197,7 +202,6 @@ module hash_fsm (
                     // we must return to ABSORB to process the actual Message next.
                     if (padded_tlast_i && padded_tuser_i != TUSER_Z) begin
                         next_phase    = PHASE_SQUEEZE;
-                        next_word_cnt = 32'd0;
                     end else begin
                         next_phase    = PHASE_ABSORB;
                     end
@@ -206,9 +210,9 @@ module hash_fsm (
 
             STATE_SQUEEZE: begin
                 if (m_axis_tready_i) begin
-                    next_word_cnt = word_cnt + 32'd1;
+                    next_words_remaining = words_remaining_r - 32'd1;
                     // Check Termination Conditions (Hash256=4 words, or XOF Abort/Length)
-                    if (abort_i || abort_latch || ((mode_i == MODE_HASH256 || xof_len_i > 0) && next_word_cnt == target_squeeze_words)) begin
+                    if (abort_i || abort_latch || ((mode_i == MODE_HASH256 || xof_len_i > 0) && words_remaining_r == 32'd1)) begin
                         next_state = STATE_DONE;
                     end else begin
                         next_state = STATE_PERM_START; // Permute between EVERY squeeze block
@@ -250,7 +254,7 @@ module hash_fsm (
             STATE_INIT: begin
                 write_en_o = 1'b1;
                 // Initialize Core S0 with IV
-                if (word_cnt == 32'd0) begin
+                if (word_cnt == 3'd0) begin
                     unique case (mode_i)
                         MODE_XOF:     data_o = ASCON_XOF_IV_WORD0;
                         MODE_CXOF:    data_o = ASCON_CXOF_IV_WORD0;
@@ -285,7 +289,7 @@ module hash_fsm (
 
                 // Assert TLAST on the final beat independent of READY to ensure stability.
                 // Include the abort latch to safely terminate even if the abort pulse arrives while stalled.
-                m_axis_tlast_o = (abort_i || abort_latch || ((mode_i == MODE_HASH256 || xof_len_i > 0) && (word_cnt + 32'd1 == target_squeeze_words)));
+                m_axis_tlast_o = (abort_i || abort_latch || ((mode_i == MODE_HASH256 || xof_len_i > 0) && (words_remaining_r == 32'd1)));
             end
 
             STATE_DONE: begin

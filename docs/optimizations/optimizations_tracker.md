@@ -8,9 +8,9 @@ This document tracks potential hardware optimization proposals for the LASCON ha
 
 | Status | Count |
 | :--- | :---: |
-| 🟢 **Completed** | 5 |
+| 🟢 **Completed** | 7 |
 | 🟡 **In-Progress** | 0 |
-| 🔵 **Pending** | 10 |
+| 🔵 **Pending** | 8 |
 | 🔴 **Denied** | 3 |
 
 ---
@@ -608,12 +608,12 @@ In `aead_fsm.sv`, there are multiple discrete counters used for entirely differe
 ### OPT-18: Replace Hash Squeeze Comparator with Down-Counter
 
 #### Status
-- [x] **Pending**
+- [ ] **Pending**
 - [ ] **In-Progress**
-- [ ] **Completed**
+- [x] **Completed**
 - [ ] **Denied**
 
-*Last Updated: 2026-07-08*
+*Last Updated: 2026-07-13*
 
 #### Description
 In `hash_fsm.sv`, the squeeze termination condition compares a 32-bit up-counter (`word_cnt + 1`) against a dynamically calculated 32-bit target (`target_squeeze_words`). This requires a full 32-bit adder and a 32-bit equality comparator on the combinational path for `m_axis_tlast_o`. By changing this to a down-counter loaded with `target_squeeze_words` during initialization and counting down to 1, we can replace the bulky 32-bit comparator with a simple zero/one-detector.
@@ -624,7 +624,7 @@ In `hash_fsm.sv`, the squeeze termination condition compares a 32-bit up-counter
 - **Area:** Saves one 32-bit equality comparator.
 
 #### Required Changes
-- [ ] `hash_fsm`: Implement a `words_remaining_r` register. Load it with `target_squeeze_words` during initialization, decrement it during squeeze, and check `words_remaining_r == 32'd1` for `m_axis_tlast_o`.
+- [x] `hash_fsm`: Implement a `words_remaining_r` register. Load it with `target_squeeze_words` during initialization, decrement it during squeeze, and check `words_remaining_r == 32'd1` for `m_axis_tlast_o`.
 
 #### Difficulty
 - **Execution Difficulty:** Easy
