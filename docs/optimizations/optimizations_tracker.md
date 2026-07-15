@@ -8,9 +8,9 @@ This document tracks potential hardware optimization proposals for the LASCON ha
 
 | Status | Count |
 | :--- | :---: |
-| 🟢 **Completed** | 7 |
+| 🟢 **Completed** | 8 |
 | 🟡 **In-Progress** | 0 |
-| 🔵 **Pending** | 8 |
+| 🔵 **Pending** | 7 |
 | 🔴 **Denied** | 3 |
 
 ---
@@ -292,12 +292,12 @@ Replace the 12-entry × 8-bit round constant LUT in `constant_addition_layer` wi
 ### OPT-8: Share Key Registers Between AEAD Phases
 
 #### Status
-- [x] **Pending**
+- [ ] **Pending**
 - [ ] **In-Progress**
-- [ ] **Completed**
+- [x] **Completed**
 - [ ] **Denied**
 
-*Last Updated: 2026-07-07*
+*Last Updated: 2026-07-14*
 
 #### Description
 In `aead_fsm`, the 128-bit key is stored in `key_r[0:1]` (128 FFs) and the received tag is stored in `rx_tag_r[0:1]` (128 FFs). Since the key and received tag are never needed simultaneously, they can share the same 128-bit register file, saving 128 FFs.
@@ -318,6 +318,7 @@ In `aead_fsm`, the 128-bit key is stored in `key_r[0:1]` (128 FFs) and the recei
 
 #### Notes & Decisions
 - **2026-07-07**: Under consideration. Needs careful review of timing between key usage and tag reception.
+- **2026-07-14**: Implemented and verified via testbenches. The shared register `shared_key_tag_r` safely reuses flip-flops, as the post-permutation XOR completes before any tag bytes are received during decryption.
 
 ---
 

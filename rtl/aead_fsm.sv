@@ -148,11 +148,8 @@ module aead_fsm(
     // PT/CT absorption
     logic    dat_word_r;
 
-    // Stored key captured during INIT
-    ascon_word_t key_r[0:1];
-
-    // dec only: received tag words
-    ascon_word_t rx_tag_r[0:1];
+    // Shared key (during enc/dec init) and received tag (during dec verify)
+    ascon_word_t shared_key_tag_r[0:1];
 
     // tag match result
     logic tag_ok_r;
@@ -503,7 +500,7 @@ module aead_fsm(
                             // cnt=0: XOR K into S3
                             // cnt=1: XOR K into S4
                             word_sel_o = (shared_cnt_r == 3'd0) ? 3'd3 : 3'd4;
-                            data_o     = (shared_cnt_r == 3'd0) ? key_r[0] : key_r[1];
+                            data_o     = (shared_cnt_r == 3'd0) ? shared_key_tag_r[0] : shared_key_tag_r[1];
                         end
                         CTX_AD: begin
                             // Domain separation: DSEP XOR into S4
@@ -599,7 +596,7 @@ module aead_fsm(
                     write_en_o    = 1'b1;
                     in_data_sel_o = DATA_IN_XOR_AEAD_SEL;
                     word_sel_o    = (shared_cnt_r == 3'd0) ? 3'd3 : 3'd4;
-                    data_o        = (shared_cnt_r == 3'd0) ? key_r[0] : key_r[1];
+                    data_o        = (shared_cnt_r == 3'd0) ? shared_key_tag_r[0] : shared_key_tag_r[1];
                 end
             end
 
@@ -647,10 +644,8 @@ module aead_fsm(
             ad_word_r          <= 1'b0;
             ad_last_seen_r     <= 1'b0;
             dat_word_r         <= 1'b0;
-            key_r[0]           <= 64'd0;
-            key_r[1]           <= 64'd0;
-            rx_tag_r[0]        <= 64'd0;
-            rx_tag_r[1]        <= 64'd0;
+            shared_key_tag_r[0]<= 64'd0;
+            shared_key_tag_r[1]<= 64'd0;
             tag_ok_r           <= 1'b1;
         end else begin
             case (state_r)
@@ -675,13 +670,13 @@ module aead_fsm(
                         end
                         3'd1: begin
                             if (phs && padded_tuser_i == TUSER_KEY) begin
-                                key_r[0]   <= padded_tdata_i; // Capture K
+                                shared_key_tag_r[0] <= padded_tdata_i; // Capture K
                                 shared_cnt_r <= 3'd2;
                             end
                         end
                         3'd2: begin
                             if (phs && padded_tuser_i == TUSER_KEY) begin
-                                key_r[1]   <= padded_tdata_i; // Capture K
+                                shared_key_tag_r[1] <= padded_tdata_i; // Capture K
                                 shared_cnt_r <= 3'd3;
                             end
                         end
@@ -788,7 +783,7 @@ module aead_fsm(
 
                 ST_DEC_TAG: begin
                     if (phs && padded_tuser_i == TUSER_TAG) begin
-                        rx_tag_r[shared_cnt_r[0]] <= padded_tdata_i;
+                        shared_key_tag_r[shared_cnt_r[0]] <= padded_tdata_i;
                         if (shared_cnt_r == 3'd1) shared_cnt_r <= 3'd0;
                         else shared_cnt_r <= shared_cnt_r + 3'd1;
                     end
@@ -798,11 +793,11 @@ module aead_fsm(
                 ST_VERIFY: begin
                     case (shared_cnt_r)
                         3'd0: begin
-                            if (core_data_i != rx_tag_r[0]) tag_ok_r <= 1'b0;
+                            if (core_data_i != shared_key_tag_r[0]) tag_ok_r <= 1'b0;
                             shared_cnt_r <= 3'd1;
                         end
                         3'd1: begin
-                            if (core_data_i != rx_tag_r[1]) tag_ok_r <= 1'b0;
+                            if (core_data_i != shared_key_tag_r[1]) tag_ok_r <= 1'b0;
                             shared_cnt_r <= 3'd2;
                         end
                         default: ; // cnt=2: hold until state → ST_DONE
