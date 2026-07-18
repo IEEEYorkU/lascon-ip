@@ -20,4 +20,5 @@ rtl/aead_fsm.sv
 # 6. Helper Modules
 
 # 7. Lascon Top-Level
+rtl/lascon_top_tt.sv
 rtl/lascon_top.sv

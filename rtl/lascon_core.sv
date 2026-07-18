@@ -34,7 +34,9 @@
 
 import lascon_pkg::*;
 
-module lascon_core (
+module lascon_core #(
+    parameter int LASCON_VARIANT = 0
+)(
     input   logic           clk,
     input   logic           rst,
 

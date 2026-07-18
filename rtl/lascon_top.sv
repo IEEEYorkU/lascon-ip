@@ -53,7 +53,9 @@
 
 import lascon_pkg::*;
 
-module lascon_top (
+module lascon_top #(
+    parameter int LASCON_VARIANT = 0
+)(
     // -----------------------------------------------------------------------
     // Global Clock and Reset
     // -----------------------------------------------------------------------
@@ -298,7 +300,9 @@ module lascon_top (
     );
 
     // --- Lascon Core ---
-    lascon_core u_core (
+    lascon_core #(
+        .LASCON_VARIANT(LASCON_VARIANT)
+    ) u_core (
         .clk            (clk),
         .rst            (rst),
         .start_perm_i   (core_start_perm_i),

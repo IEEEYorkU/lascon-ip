@@ -20,7 +20,7 @@ jobs:
       build_tools_ref: 'main'
 
       # Your comma-separated top modules for the Yosys synthesis matrix
-      top_modules: 'lascon_top'
+      top_modules: 'lascon_top, lascon_top_tt'
 
       enable_synth: true
       enable_lint: true
