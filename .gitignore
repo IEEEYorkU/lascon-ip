@@ -42,3 +42,4 @@ build.f
 *.pyc
 
 metrics.ys
+*.lib
