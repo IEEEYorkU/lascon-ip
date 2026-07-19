@@ -454,12 +454,12 @@ Remove explicit sequential state value assignments (e.g., `= 4'd0, 4'd1...`) fro
 ### OPT-13: Serialize Linear Diffusion (Datapath)
 
 #### Status
-- [x] **Pending**
+- [ ] **Pending**
 - [ ] **In-Progress**
 - [ ] **Completed**
-- [ ] **Denied**
+- [x] **Denied**
 
-*Last Updated: 2026-07-08*
+*Last Updated: 2026-07-18*
 
 #### Description
 Instead of computing all five 64-bit word rotations concurrently in `linear_diffusion_layer.sv`, instantiate a single 64-bit diffusion block and process the state sequentially over 5 clock cycles.
@@ -479,6 +479,7 @@ Instead of computing all five 64-bit word rotations concurrently in `linear_diff
 
 #### Notes & Decisions
 - **2026-07-08**: Identified as an area optimization strategy. Marked as pending.
+- **2026-07-18**: Denied. Detailed analysis showed that serializing Ascon's diffusion layer (which has unique rotation offsets per word) requires either dynamic barrel shifters and multiplexers (> 2,500 GE) or a shadow register (> 1,600 GE), making it less area-efficient than the parallel XOR version (~1,600 GE).
 
 ---
 
