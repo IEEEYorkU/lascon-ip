@@ -9,7 +9,9 @@
 
 import lascon_pkg::*;
 
-module constant_addition_layer_tb;
+module constant_addition_layer_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // Input and output signals for the dut
     logic round_config_i;

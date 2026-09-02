@@ -11,7 +11,9 @@
 import lascon_pkg::*;
 import permutations_sim_pkg::*;
 
-module lascon_top_tb;
+module lascon_top_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // =======================================================================
     // Signals & DUT Instantiation
@@ -41,7 +43,9 @@ module lascon_top_tb;
     logic           m_axis_tvalid;
     logic           m_axis_tready;
 
-    lascon_top dut (.*);
+    lascon_top #(
+        .LASCON_VARIANT(LASCON_VARIANT)
+    ) dut (.*);
 
     // =======================================================================
     // Clock & Simulated DMA (Backpressure)

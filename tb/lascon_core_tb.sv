@@ -10,7 +10,9 @@
 import lascon_pkg::*;
 import permutations_sim_pkg::*;
 
-module lascon_core_tb;
+module lascon_core_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // ----------------------------
     // Input and Output Signals
@@ -52,7 +54,9 @@ module lascon_core_tb;
     // Error Tracking
     int error_count = 0;
 
-    lascon_core dut(
+    lascon_core #(
+        .LASCON_VARIANT(LASCON_VARIANT)
+    ) dut(
         .clk(clk), .rst(rst),
         .start_perm_i(start_perm_i),
         .round_config_i(round_config_i),

@@ -8,7 +8,9 @@
 `timescale 1ns/1ps
 import lascon_pkg::*;
 
-module substitution_layer_tb;
+module substitution_layer_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
 // Inputs and Registers DUT
 ascon_state_t state_array_i;

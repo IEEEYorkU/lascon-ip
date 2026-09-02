@@ -22,3 +22,4 @@ rtl/aead_fsm.sv
 # 7. Lascon Top-Level
 rtl/lascon_top_tt.sv
 rtl/lascon_top.sv
+rtl/lascon_axi_wrapper.sv
