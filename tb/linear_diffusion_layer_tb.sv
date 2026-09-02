@@ -8,7 +8,9 @@
 `timescale 1ns/1ps
 import lascon_pkg::*;
 
-module linear_diffusion_layer_tb;
+module linear_diffusion_layer_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // DUT signals
     ascon_state_t state_i;

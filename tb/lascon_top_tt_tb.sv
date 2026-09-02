@@ -12,7 +12,9 @@
 import lascon_pkg::*;
 import permutations_sim_pkg::*;
 
-module lascon_top_tt_tb;
+module lascon_top_tt_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // =======================================================================
     // Signals & DUT Instantiation

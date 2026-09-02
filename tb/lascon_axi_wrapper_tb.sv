@@ -11,7 +11,9 @@
 
 import lascon_pkg::*;
 
-module lascon_axi_wrapper_tb;
+module lascon_axi_wrapper_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // -------------------------------------------------------------------------
     // TB Signals & Clock/Reset
@@ -63,7 +65,8 @@ module lascon_axi_wrapper_tb;
     // -------------------------------------------------------------------------
     lascon_axi_wrapper #(
         .C_S_AXI_DATA_WIDTH(32),
-        .C_S_AXI_ADDR_WIDTH(4)
+        .C_S_AXI_ADDR_WIDTH(4),
+        .LASCON_VARIANT(LASCON_VARIANT)
     ) uut (
         .s_axi_aclk    (s_axi_aclk),
         .s_axi_aresetn (s_axi_aresetn),
@@ -128,21 +131,21 @@ module lascon_axi_wrapper_tb;
             fork
                 begin
                     wait(s_axi_awready);
-                    @(posedge s_axi_aclk);
+                    @(posedge s_axi_aclk); #1;
                     s_axi_awvalid = 1'b0;
                 end
                 begin
                     wait(s_axi_wready);
-                    @(posedge s_axi_aclk);
+                    @(posedge s_axi_aclk); #1;
                     s_axi_wvalid = 1'b0;
                 end
             join
 
             // Wait for response
             wait(s_axi_bvalid);
-            @(posedge s_axi_aclk);
+            @(posedge s_axi_aclk); #1;
             s_axi_bready = 1'b0;
-            @(posedge s_axi_aclk);
+            @(posedge s_axi_aclk); #1;
         end
     endtask
 
@@ -155,15 +158,15 @@ module lascon_axi_wrapper_tb;
             s_axi_rready  = 1'b1;
 
             wait(s_axi_arready);
-            @(posedge s_axi_aclk);
+            @(posedge s_axi_aclk); #1;
             s_axi_arvalid = 1'b0;
 
             // Wait for data
             wait(s_axi_rvalid);
             data = s_axi_rdata;
-            @(posedge s_axi_aclk);
+            @(posedge s_axi_aclk); #1;
             s_axi_rready = 1'b0;
-            @(posedge s_axi_aclk);
+            @(posedge s_axi_aclk); #1;
         end
     endtask
 
@@ -216,12 +219,12 @@ module lascon_axi_wrapper_tb;
 
         // Force the core's internal 'done' signal to simulate completion
         $display("[TB] Forcing internal core_done signal to HIGH for 1 cycle...");
+        @(posedge s_axi_aclk); #1;
         force uut.core_done = 1'b1;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
         force uut.core_done = 1'b0;
-        @(posedge s_axi_aclk);
         release uut.core_done;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
 
         // Verify IRQ output goes high
         if (irq_o !== 1'b1) begin $display("ERROR: irq_o did not assert!"); err_count++; end
@@ -252,12 +255,12 @@ module lascon_axi_wrapper_tb;
         // 6. Interrupt Masking Check (IRQ_EN = 0)
         $display("[TB] 6. Verifying Interrupt Masking (IRQ_EN = 0)...");
         axi_write(4'h0, 32'h04); // Mode Hash, IRQ_EN = 0
+        @(posedge s_axi_aclk); #1;
         force uut.core_done = 1'b1;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
         force uut.core_done = 1'b0;
-        @(posedge s_axi_aclk);
         release uut.core_done;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
 
         if (irq_o !== 1'b0) begin $display("ERROR: irq_o asserted while masked!"); err_count++; end
         axi_read(4'h8, rdata);
@@ -266,12 +269,12 @@ module lascon_axi_wrapper_tb;
 
         // 7. TAG_FAIL Latching & W1C Check
         $display("[TB] 7. Verifying TAG_FAIL Latching & W1C...");
+        @(posedge s_axi_aclk); #1;
         force uut.core_tag_fail = 1'b1;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
         force uut.core_tag_fail = 1'b0;
-        @(posedge s_axi_aclk);
         release uut.core_tag_fail;
-        @(posedge s_axi_aclk);
+        @(posedge s_axi_aclk); #1;
 
         axi_read(4'h8, rdata);
         if ((rdata & 32'h04) == 0) begin $display("ERROR: TAG_FAIL bit not latched in Status Reg: %08x", rdata); err_count++; end

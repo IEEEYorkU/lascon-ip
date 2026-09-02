@@ -7,7 +7,9 @@
 `timescale 1ns/1ps
 import lascon_pkg::*;
 
-module lascon_padder_tb;
+module lascon_padder_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // DUT signals
     logic        clk, rst;
