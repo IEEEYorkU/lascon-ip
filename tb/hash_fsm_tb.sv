@@ -9,7 +9,9 @@
 `timescale 1ns / 1ps
 import lascon_pkg::*;
 
-module hash_fsm_tb;
+module hash_fsm_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // =======================================================================
     // Signals & DUT Instantiation

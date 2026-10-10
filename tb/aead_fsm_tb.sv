@@ -8,7 +8,9 @@
 `timescale 1ns/1ps
 import lascon_pkg::*;
 
-module aead_fsm_tb;
+module aead_fsm_tb #(
+    parameter int LASCON_VARIANT = 0
+);
 
     // -------------------------------------------------------------------------
     // 1. Explicit Signal Declarations
